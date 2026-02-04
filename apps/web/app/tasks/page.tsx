@@ -15,10 +15,20 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,8 +135,10 @@ const columnColors: Record<
 };
 
 // Priority styles
+type TaskPriority = "low" | "medium" | "high" | "critical";
+
 const priorityStyles: Record<
-  string,
+  TaskPriority,
   { bg: string; text: string; label: string }
 > = {
   low: { bg: "bg-gray-100", text: "text-gray-600", label: "Low" },
@@ -134,6 +146,8 @@ const priorityStyles: Record<
   high: { bg: "bg-amber-100", text: "text-amber-600", label: "High" },
   critical: { bg: "bg-red-100", text: "text-red-600", label: "Critical" },
 };
+
+const priorityOrder: TaskPriority[] = ["low", "medium", "high", "critical"];
 
 // Task Card Component
 interface TaskCardProps {
@@ -151,11 +165,10 @@ function TaskCard({
   onDragStart,
   onDragEnd,
 }: TaskCardProps) {
-  const priority = (priorityStyles[task.priority] || priorityStyles.medium) as {
-    bg: string;
-    text: string;
-    label: string;
-  };
+  const priorityKey = priorityOrder.includes(task.priority)
+    ? (task.priority as TaskPriority)
+    : "medium";
+  const priority = priorityStyles[priorityKey];
 
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = "move";
@@ -378,10 +391,18 @@ function KanbanColumn({ column, tasks, agents, onDrop }: ColumnProps) {
 export default function TasksPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isCreating, setIsCreating] = React.useState(false);
+  const [taskTitle, setTaskTitle] = React.useState("");
+  const [taskDescription, setTaskDescription] = React.useState("");
+  const [taskPriority, setTaskPriority] =
+    React.useState<TaskPriority>("medium");
+  const [taskDueDate, setTaskDueDate] = React.useState("");
+  const [taskAssignees, setTaskAssignees] = React.useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   // Real-time queries
   const tasks = useQuery(api.tasks.list) || [];
   const agents = useQuery(api.agents.list) || [];
+  const createTask = useMutation(api.tasks.create);
   const updateTaskStatus = useMutation(api.tasks.updateStatus);
   const updateTaskAssignee = useMutation(api.tasks.assign);
 
@@ -454,103 +475,299 @@ export default function TasksPage() {
     }
   };
 
+  const resetForm = () => {
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskPriority("medium");
+    setTaskDueDate("");
+    setTaskAssignees([]);
+    setIsSubmitting(false);
+  };
+
+  const handleDialogChange = (open: boolean) => {
+    setIsCreating(open);
+    if (!open) {
+      resetForm();
+    }
+  };
+
+  const toggleAssignee = (agentId: string) => {
+    setTaskAssignees((current) =>
+      current.includes(agentId)
+        ? current.filter((id) => id !== agentId)
+        : [...current, agentId],
+    );
+  };
+
+  const handleCreateTask = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!taskTitle.trim()) return;
+
+    setIsSubmitting(true);
+    try {
+      const dueDate = taskDueDate
+        ? new Date(`${taskDueDate}T00:00:00`).getTime()
+        : undefined;
+
+      await createTask({
+        title: taskTitle.trim(),
+        description: taskDescription.trim() || undefined,
+        priority: taskPriority,
+        assigneeIds: taskAssignees.length ? (taskAssignees as any) : undefined,
+        dueDate,
+      });
+
+      setIsCreating(false);
+      resetForm();
+    } catch (error) {
+      console.error("Failed to create task", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#FDFCF8]">
-      {/* Header */}
-      <header className="border-b border-[#E8E4DB] bg-[#FDFCF8] sticky top-0 z-10">
-        <div className="max-w-[1600px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/">
-                <Button variant="ghost" size="icon" className="text-[#6B6B65]">
-                  <ArrowLeft className="h-5 w-5" />
+    <Dialog open={isCreating} onOpenChange={handleDialogChange}>
+      <div className="min-h-screen bg-[#FDFCF8]">
+        {/* Header */}
+        <header className="border-b border-[#E8E4DB] bg-[#FDFCF8] sticky top-0 z-10">
+          <div className="max-w-[1600px] mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Link href="/">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-[#6B6B65]"
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <div>
+                  <h1 className="font-serif text-xl font-semibold text-[#1A1A1A]">
+                    Task Board
+                  </h1>
+                  <p className="text-xs text-[#6B6B65]">
+                    {tasks.length} total tasks • Drag and drop to move
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8A8A82]" />
+                  <Input
+                    placeholder="Search tasks..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 w-64 bg-[#FDFCF8] border-[#E8E4DB] text-sm"
+                  />
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-[#E8E4DB]"
+                >
+                  <Filter className="h-4 w-4 text-[#6B6B65]" />
                 </Button>
-              </Link>
-              <div>
-                <h1 className="font-serif text-xl font-semibold text-[#1A1A1A]">
-                  Task Board
-                </h1>
-                <p className="text-xs text-[#6B6B65]">
-                  {tasks.length} total tasks • Drag and drop to move
-                </p>
+
+                <DialogTrigger asChild>
+                  <Button className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]">
+                    <Plus className="h-4 w-4 mr-2" />
+                    New Task
+                  </Button>
+                </DialogTrigger>
               </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8A8A82]" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-9 w-64 bg-[#FDFCF8] border-[#E8E4DB] text-sm"
-                />
-              </div>
-
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-[#E8E4DB]"
-              >
-                <Filter className="h-4 w-4 text-[#6B6B65]" />
-              </Button>
-
-              <Button
-                className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]"
-                onClick={() => setIsCreating(true)}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Task
-              </Button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Kanban Board */}
-      <main className="max-w-[1600px] mx-auto px-6 py-6">
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map((column: any) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              tasks={getTasksForColumn(column.id)}
-              agents={agents}
-              onDrop={handleDrop}
-            />
-          ))}
-        </div>
-      </main>
+        {/* Kanban Board */}
+        <main className="max-w-[1600px] mx-auto px-6 py-6">
+          <div className="flex gap-4 overflow-x-auto pb-4">
+            {columns.map((column: any) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                tasks={getTasksForColumn(column.id)}
+                agents={agents}
+                onDrop={handleDrop}
+              />
+            ))}
+          </div>
+        </main>
+      </div>
 
-      {/* New Task Modal - Simple placeholder */}
-      {isCreating && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="p-6 bg-[#FDFCF8] border-[#E8E4DB] w-full max-w-md">
-            <h2 className="font-serif text-lg font-semibold text-[#1A1A1A] mb-4">
-              Create New Task
-            </h2>
-            <p className="text-sm text-[#6B6B65] mb-4">
-              Task creation would open a full form. This is a placeholder.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsCreating(false)}
-                className="border-[#E8E4DB]"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => setIsCreating(false)}
-                className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]"
-              >
-                Create
-              </Button>
+      <DialogContent className="sm:max-w-[640px]">
+        <DialogHeader>
+          <DialogTitle>Create New Task</DialogTitle>
+          <DialogDescription>
+            Add a task to the board, set priority, and assign agents.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleCreateTask} className="space-y-6">
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-medium text-[#1A1A1A] mb-2 block">
+                Title
+              </label>
+              <Input
+                placeholder="Add a concise task title"
+                value={taskTitle}
+                onChange={(e) => setTaskTitle(e.target.value)}
+                className="bg-[#FDFCF8] border-[#E8E4DB] text-sm"
+              />
             </div>
-          </Card>
-        </div>
-      )}
-    </div>
+
+            <div>
+              <label className="text-sm font-medium text-[#1A1A1A] mb-2 block">
+                Description
+              </label>
+              <Textarea
+                placeholder="Add context, requirements, or acceptance criteria"
+                value={taskDescription}
+                onChange={(e) => setTaskDescription(e.target.value)}
+                className="min-h-[120px]"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium text-[#1A1A1A] mb-2 block">
+                  Priority
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {priorityOrder.map((priority) => {
+                    const style = priorityStyles[priority];
+                    const isSelected = taskPriority === priority;
+
+                    return (
+                      <button
+                        key={priority}
+                        type="button"
+                        onClick={() => setTaskPriority(priority)}
+                        className={`px-3 py-1.5 rounded-md border text-xs font-semibold uppercase tracking-wide transition ${style.bg} ${style.text} ${
+                          isSelected
+                            ? "border-[#C75B39] ring-2 ring-[#C75B39]/30"
+                            : "border-[#E8E4DB] opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        {style.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-[#1A1A1A] mb-2 block">
+                  Due Date
+                </label>
+                <Input
+                  type="date"
+                  value={taskDueDate}
+                  onChange={(e) => setTaskDueDate(e.target.value)}
+                  className="bg-[#FDFCF8] border-[#E8E4DB] text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-[#1A1A1A]">
+                  Assignees
+                </label>
+                {taskAssignees.length > 0 ? (
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-[#8A8A82]">
+                      {taskAssignees.length} selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setTaskAssignees([])}
+                      className="text-xs text-[#C75B39] hover:underline"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-xs text-[#8A8A82]">Optional</span>
+                )}
+              </div>
+
+              <ScrollArea className="h-28 rounded-md border border-[#E8E4DB] bg-[#FDFCF8] p-2">
+                <div className="flex flex-wrap gap-2">
+                  {agents.length === 0 ? (
+                    <p className="text-sm text-[#8A8A82] px-2 py-3">
+                      No agents yet. Create an agent to assign this task.
+                    </p>
+                  ) : (
+                    agents.map((agent: any) => {
+                      const isSelected = taskAssignees.includes(agent._id);
+
+                      return (
+                        <button
+                          key={agent._id}
+                          type="button"
+                          onClick={() => toggleAssignee(agent._id)}
+                          className={`flex items-center gap-2 px-3 py-2 rounded-md border transition-all ${
+                            isSelected
+                              ? "border-[#C75B39] bg-[#FEF2F2]"
+                              : "border-[#E8E4DB] hover:border-[#8A8A82]"
+                          }`}
+                        >
+                          <Avatar
+                            className="h-6 w-6 rounded-[4px]"
+                            style={{
+                              backgroundColor: getAgentColor(agent.name),
+                            }}
+                          >
+                            <AvatarFallback className="text-[10px] text-[#FDFCF8] bg-transparent">
+                              {getInitials(agent.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <p className="text-sm text-[#1A1A1A]">
+                              {agent.name}
+                            </p>
+                            <p className="text-xs text-[#8A8A82]">
+                              {agent.role}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <span className="h-2 w-2 rounded-full bg-[#C75B39]" />
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => handleDialogChange(false)}
+              className="border-[#E8E4DB]"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!taskTitle.trim() || isSubmitting}
+              className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]"
+            >
+              Create Task
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
