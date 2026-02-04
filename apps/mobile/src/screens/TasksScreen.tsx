@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -10,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import Markdown from "react-native-markdown-display";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@repo/convex/convex/_generated/api";
@@ -17,6 +19,7 @@ import { Avatar } from "../components/Avatar";
 import { Card } from "../components/Card";
 import { SectionHeader } from "../components/SectionHeader";
 import { colors, fonts, radius, shadow } from "../theme";
+import { formatTimeAgo } from "../utils";
 
 type TaskPriority = "low" | "medium" | "high" | "critical";
 type TaskStatus =
@@ -132,8 +135,15 @@ export function TasksScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<any | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<any | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingAssignees, setIsSavingAssignees] = useState(false);
+
+  const documents =
+    useQuery(
+      api.documents.getByTask,
+      detailTask ? { taskId: detailTask._id } : "skip",
+    ) || [];
 
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDescription, setTaskDescription] = useState("");
@@ -154,6 +164,12 @@ export function TasksScreen() {
   useEffect(() => {
     if (detailTask) {
       setAssigneesDraft(detailTask.assigneeIds || []);
+    }
+  }, [detailTask]);
+
+  useEffect(() => {
+    if (!detailTask) {
+      setSelectedDocument(null);
     }
   }, [detailTask]);
 
@@ -251,6 +267,52 @@ export function TasksScreen() {
   const getTaskAssignees = (task: any) => {
     if (!task.assigneeIds) return [];
     return agents.filter((agent: any) => task.assigneeIds.includes(agent._id));
+  };
+
+  const getAgentName = (agentId?: string) => {
+    if (!agentId) return "Unknown";
+    const agent = agents.find((item: any) => item._id === agentId);
+    return agent ? agent.name : "Unknown";
+  };
+
+  const getDocumentMarkdown = (document: any) => {
+    const rawContent =
+      typeof document?.content === "string" ? document.content : "";
+    const content = rawContent.trim();
+    const type = document?.type || "text";
+    const fence = "```";
+
+    const buildCodeBlock = (value: string, language?: string) => {
+      const lang = language ? language : "";
+      return `${fence}${lang}\n${value}\n${fence}`;
+    };
+
+    let body = "";
+
+    if (!content) {
+      body = "_No content provided._";
+    } else if (type === "markdown") {
+      body = content;
+    } else if (type === "code") {
+      body = buildCodeBlock(content);
+    } else if (type === "json") {
+      body = buildCodeBlock(content, "json");
+    } else if (type === "link") {
+      const link = content.startsWith("http") ? content : `https://${content}`;
+      body = `[${content}](${link})`;
+    } else {
+      body = content;
+    }
+
+    if (document?.metadata && typeof document.metadata === "object") {
+      const metadataKeys = Object.keys(document.metadata || {});
+      if (metadataKeys.length > 0) {
+        const metadataJson = JSON.stringify(document.metadata, null, 2);
+        body += `\n\n## Metadata\n${buildCodeBlock(metadataJson, "json")}`;
+      }
+    }
+
+    return body;
   };
 
   return (
@@ -606,148 +668,282 @@ export function TasksScreen() {
                 { paddingBottom: Math.max(insets.bottom, 16) },
               ]}
             >
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Task Details</Text>
-                <Pressable
-                  style={styles.iconButton}
-                  onPress={() => setDetailTask(null)}
-                >
-                  <Ionicons name="close" size={18} color={colors.inkTertiary} />
-                </Pressable>
-              </View>
-              <Text style={styles.taskDetailTitle}>{detailTask.title}</Text>
-              {detailTask.description ? (
-                <Text style={styles.taskDetailDescription}>
-                  {detailTask.description}
-                </Text>
-              ) : null}
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Task Details</Text>
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => setDetailTask(null)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={18}
+                      color={colors.inkTertiary}
+                    />
+                  </Pressable>
+                </View>
+                <Text style={styles.taskDetailTitle}>{detailTask.title}</Text>
+                {detailTask.description ? (
+                  <Text style={styles.taskDetailDescription}>
+                    {detailTask.description}
+                  </Text>
+                ) : null}
 
-              <View style={styles.detailMetaRow}>
-                <View
-                  style={[
-                    styles.statusBadge,
-                    {
-                      backgroundColor: detailStatusStyle.bg,
-                      borderColor: detailStatusStyle.border,
-                    },
-                  ]}
-                >
-                  <Text
+                <View style={styles.detailMetaRow}>
+                  <View
                     style={[
-                      styles.statusText,
-                      { color: detailStatusStyle.text },
+                      styles.statusBadge,
+                      {
+                        backgroundColor: detailStatusStyle.bg,
+                        borderColor: detailStatusStyle.border,
+                      },
                     ]}
                   >
-                    {detailStatusStyle.label}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.priorityBadge,
-                    { backgroundColor: detailPriorityStyle.bg },
-                  ]}
-                >
-                  <Text
+                    <Text
+                      style={[
+                        styles.statusText,
+                        { color: detailStatusStyle.text },
+                      ]}
+                    >
+                      {detailStatusStyle.label}
+                    </Text>
+                  </View>
+                  <View
                     style={[
-                      styles.priorityText,
-                      { color: detailPriorityStyle.text },
+                      styles.priorityBadge,
+                      { backgroundColor: detailPriorityStyle.bg },
                     ]}
                   >
-                    {detailPriorityStyle.label}
-                  </Text>
+                    <Text
+                      style={[
+                        styles.priorityText,
+                        { color: detailPriorityStyle.text },
+                      ]}
+                    >
+                      {detailPriorityStyle.label}
+                    </Text>
+                  </View>
                 </View>
-              </View>
 
-              {detailTask.dueDate ? (
-                <View style={styles.dueWrap}>
-                  <Ionicons name="calendar" size={12} color={colors.inkMuted} />
-                  <Text style={styles.dueText}>
-                    Due{" "}
-                    {new Date(detailTask.dueDate).toLocaleDateString("en-US")}
-                  </Text>
-                </View>
-              ) : null}
+                {detailTask.dueDate ? (
+                  <View style={styles.dueWrap}>
+                    <Ionicons
+                      name="calendar"
+                      size={12}
+                      color={colors.inkMuted}
+                    />
+                    <Text style={styles.dueText}>
+                      Due{" "}
+                      {new Date(detailTask.dueDate).toLocaleDateString("en-US")}
+                    </Text>
+                  </View>
+                ) : null}
 
-              <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Update Status</Text>
-                <View style={styles.statusActionRow}>
-                  {statusActions.map((status) => {
-                    const style = statusStyles[status];
-                    return (
-                      <Pressable
-                        key={status}
-                        onPress={() => handleUpdateStatus(status)}
-                        style={[
-                          styles.statusAction,
-                          {
-                            backgroundColor: style.bg,
-                            borderColor: style.border,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.statusActionText,
-                            { color: style.text },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {style.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.modalSection}>
-                <Text style={styles.modalLabel}>Assignees</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.agentChipRow}>
-                    {agents.map((agent: any) => {
-                      const selected = assigneesDraft.includes(agent._id);
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>Update Status</Text>
+                  <View style={styles.statusActionRow}>
+                    {statusActions.map((status) => {
+                      const style = statusStyles[status];
                       return (
                         <Pressable
-                          key={agent._id}
+                          key={status}
+                          onPress={() => handleUpdateStatus(status)}
                           style={[
-                            styles.agentChip,
-                            selected ? styles.agentChipSelected : null,
+                            styles.statusAction,
+                            {
+                              backgroundColor: style.bg,
+                              borderColor: style.border,
+                            },
                           ]}
-                          onPress={() =>
-                            handleToggleAssignee(agent._id, setAssigneesDraft)
-                          }
                         >
-                          <Avatar name={agent.name} size={24} />
-                          <Text style={styles.agentChipText}>{agent.name}</Text>
-                          {selected ? (
-                            <View style={styles.selectedDot} />
-                          ) : null}
+                          <Text
+                            style={[
+                              styles.statusActionText,
+                              { color: style.text },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {style.label}
+                          </Text>
                         </Pressable>
                       );
                     })}
                   </View>
-                </ScrollView>
-              </View>
+                </View>
 
-              <View style={styles.modalFooter}>
-                <Pressable
-                  style={styles.modalSecondary}
-                  onPress={() => setDetailTask(null)}
-                >
-                  <Text style={styles.modalSecondaryText}>Close</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.modalPrimary}
-                  onPress={handleSaveAssignees}
-                  disabled={isSavingAssignees}
-                >
-                  {isSavingAssignees ? (
-                    <ActivityIndicator color={colors.inkInverse} />
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>Assignees</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.agentChipRow}>
+                      {agents.map((agent: any) => {
+                        const selected = assigneesDraft.includes(agent._id);
+                        return (
+                          <Pressable
+                            key={agent._id}
+                            style={[
+                              styles.agentChip,
+                              selected ? styles.agentChipSelected : null,
+                            ]}
+                            onPress={() =>
+                              handleToggleAssignee(agent._id, setAssigneesDraft)
+                            }
+                          >
+                            <Avatar name={agent.name} size={24} />
+                            <Text style={styles.agentChipText}>
+                              {agent.name}
+                            </Text>
+                            {selected ? (
+                              <View style={styles.selectedDot} />
+                            ) : null}
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>
+                    Documents ({documents.length})
+                  </Text>
+                  {documents.length === 0 ? (
+                    <Text style={styles.mutedText}>No documents yet.</Text>
                   ) : (
-                    <Text style={styles.modalPrimaryText}>Save Assignees</Text>
+                    <View style={styles.documentsList}>
+                      {documents.map((document: any) => (
+                        <Pressable
+                          key={document._id}
+                          style={styles.documentCard}
+                          onPress={() => setSelectedDocument(document)}
+                        >
+                          <View style={styles.documentRow}>
+                            <View style={styles.documentIcon}>
+                              <Ionicons
+                                name="document-text"
+                                size={16}
+                                color={colors.inkSecondary}
+                              />
+                            </View>
+                            <View style={styles.documentInfo}>
+                              <Text style={styles.documentTitle}>
+                                {document.title}
+                              </Text>
+                              <Text style={styles.documentMeta}>
+                                {(document.type || "text").toUpperCase()} - v
+                                {document.version || 1} -{" "}
+                                {formatTimeAgo(document._creationTime)}
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={16}
+                              color={colors.inkMuted}
+                            />
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
                   )}
-                </Pressable>
-              </View>
+                </View>
+
+                <View style={styles.modalFooter}>
+                  <Pressable
+                    style={styles.modalSecondary}
+                    onPress={() => setDetailTask(null)}
+                  >
+                    <Text style={styles.modalSecondaryText}>Close</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.modalPrimary}
+                    onPress={handleSaveAssignees}
+                    disabled={isSavingAssignees}
+                  >
+                    {isSavingAssignees ? (
+                      <ActivityIndicator color={colors.inkInverse} />
+                    ) : (
+                      <Text style={styles.modalPrimaryText}>
+                        Save Assignees
+                      </Text>
+                    )}
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
+      <Modal
+        visible={!!selectedDocument}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedDocument(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setSelectedDocument(null)}
+          />
+          {selectedDocument ? (
+            <View
+              style={[
+                styles.modalSheet,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
+            >
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Document</Text>
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => setSelectedDocument(null)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={18}
+                      color={colors.inkTertiary}
+                    />
+                  </Pressable>
+                </View>
+
+                <Text style={styles.documentDetailTitle}>
+                  {selectedDocument.title}
+                </Text>
+                <View style={styles.documentDetailMeta}>
+                  <View style={styles.documentBadge}>
+                    <Text style={styles.documentBadgeText}>
+                      {(selectedDocument.type || "text").toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.documentDetailMetaText}>
+                    v{selectedDocument.version || 1}
+                  </Text>
+                  <Text style={styles.documentDetailMetaText}>
+                    Created {formatTimeAgo(selectedDocument._creationTime)}
+                  </Text>
+                  <Text style={styles.documentDetailMetaText}>
+                    Author {getAgentName(selectedDocument.createdBy)}
+                  </Text>
+                </View>
+
+                <View style={styles.documentContentCard}>
+                  <Markdown
+                    style={markdownStyles}
+                    onLinkPress={(url) => {
+                      void Linking.openURL(url);
+                      return false;
+                    }}
+                  >
+                    {getDocumentMarkdown(selectedDocument)}
+                  </Markdown>
+                </View>
+              </ScrollView>
             </View>
           ) : null}
         </View>
@@ -755,6 +951,72 @@ export function TasksScreen() {
     </View>
   );
 }
+
+const markdownStyles = StyleSheet.create({
+  body: {
+    color: colors.inkPrimary,
+    fontFamily: fonts.serifRegular,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  heading1: {
+    fontFamily: fonts.serif,
+    fontSize: 20,
+    color: colors.inkPrimary,
+    marginBottom: 8,
+  },
+  heading2: {
+    fontFamily: fonts.serif,
+    fontSize: 18,
+    color: colors.inkPrimary,
+    marginBottom: 6,
+  },
+  heading3: {
+    fontFamily: fonts.serif,
+    fontSize: 16,
+    color: colors.inkPrimary,
+    marginBottom: 6,
+  },
+  paragraph: {
+    marginTop: 0,
+    marginBottom: 8,
+  },
+  link: {
+    color: colors.accentCoral,
+  },
+  code_block: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.inkPrimary,
+    backgroundColor: colors.bgSecondary,
+    padding: 10,
+    borderRadius: radius.sm,
+  },
+  code_inline: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.inkPrimary,
+    backgroundColor: colors.bgSecondary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radius.sm,
+  },
+  bullet_list: {
+    marginVertical: 4,
+  },
+  ordered_list: {
+    marginVertical: 4,
+  },
+  list_item: {
+    marginBottom: 4,
+  },
+  blockquote: {
+    borderLeftColor: colors.bgMuted,
+    borderLeftWidth: 3,
+    paddingLeft: 10,
+    color: colors.inkTertiary,
+  },
+});
 
 const styles = StyleSheet.create({
   screen: {
@@ -940,6 +1202,9 @@ const styles = StyleSheet.create({
     gap: 16,
     ...shadow.soft,
   },
+  modalScrollContent: {
+    gap: 16,
+  },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -970,6 +1235,79 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 12,
     color: colors.inkPrimary,
+  },
+  documentsList: {
+    gap: 10,
+  },
+  documentCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.bgMuted,
+    backgroundColor: colors.bgSecondary,
+    padding: 12,
+  },
+  documentRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  documentIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgTertiary,
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentTitle: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 13,
+    color: colors.inkPrimary,
+  },
+  documentMeta: {
+    marginTop: 4,
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.inkMuted,
+  },
+  documentDetailTitle: {
+    fontFamily: fonts.serif,
+    fontSize: 18,
+    color: colors.inkPrimary,
+  },
+  documentDetailMeta: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+  },
+  documentBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    backgroundColor: colors.bgSecondary,
+  },
+  documentBadgeText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 10,
+    textTransform: "uppercase",
+    color: colors.inkSecondary,
+    letterSpacing: 0.6,
+  },
+  documentDetailMetaText: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.inkMuted,
+  },
+  documentContentCard: {
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.bgMuted,
+    backgroundColor: colors.bgSecondary,
+    padding: 12,
   },
   input: {
     borderRadius: radius.md,
