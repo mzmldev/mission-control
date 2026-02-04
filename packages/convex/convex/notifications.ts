@@ -23,7 +23,7 @@ export const getByAgent = query({
 });
 
 // Get undelivered notifications for an agent
-export const getUndelivered = query({
+export const getUndeliveredByAgent = query({
   args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
     return await ctx.db
@@ -33,6 +33,18 @@ export const getUndelivered = query({
       )
       .order("desc")
       .take(50);
+  },
+});
+
+// Get ALL undelivered notifications (for daemon)
+export const getUndelivered = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db
+      .query("notifications")
+      .withIndex("by_delivered", (q) => q.eq("delivered", false))
+      .order("desc")
+      .take(100);
   },
 });
 

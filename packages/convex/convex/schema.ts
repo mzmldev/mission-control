@@ -130,4 +130,15 @@ export default defineSchema({
     .index("by_agent", ["agentId"])
     .index("by_delivered", ["delivered"])
     .index("by_agent_delivered", ["agentId", "delivered"]),
+
+  // Thread subscriptions - agents subscribed to task conversations
+  threadSubscriptions: defineTable({
+    taskId: v.id("tasks"),
+    agentId: v.id("agents"),
+    subscribedAt: v.number(),
+    reason: v.optional(v.string()), // e.g., "commented", "assigned", "mentioned"
+  })
+    .index("by_task", ["taskId"])
+    .index("by_agent", ["agentId"])
+    .index("by_task_agent", ["taskId", "agentId"]),
 });
