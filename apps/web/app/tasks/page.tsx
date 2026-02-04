@@ -2,17 +2,17 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { 
-  CheckSquare, 
-  Plus, 
+import {
+  CheckSquare,
+  Plus,
   Filter,
   Search,
   ArrowLeft,
   GripVertical,
-  MoreHorizontal
+  MoreHorizontal,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -28,25 +28,50 @@ import {
 
 // Kanban columns - mapped from schema status to display columns
 const columns = [
-  { id: "pending_unassigned", label: "Inbox", status: "pending", description: "New tasks waiting to be triaged" },
-  { id: "pending_assigned", label: "Assigned", status: "pending", description: "Tasks assigned to agents" },
-  { id: "in_progress", label: "In Progress", status: "in_progress", description: "Currently being worked on" },
-  { id: "completed", label: "Review", status: "completed", description: "Ready for review" },
-  { id: "blocked", label: "Done", status: "blocked", description: "Completed tasks" },
+  {
+    id: "pending_unassigned",
+    label: "Inbox",
+    status: "pending",
+    description: "New tasks waiting to be triaged",
+  },
+  {
+    id: "pending_assigned",
+    label: "Assigned",
+    status: "pending",
+    description: "Tasks assigned to agents",
+  },
+  {
+    id: "in_progress",
+    label: "In Progress",
+    status: "in_progress",
+    description: "Currently being worked on",
+  },
+  {
+    id: "completed",
+    label: "Review",
+    status: "completed",
+    description: "Ready for review",
+  },
+  {
+    id: "blocked",
+    label: "Done",
+    status: "blocked",
+    description: "Completed tasks",
+  },
 ] as const;
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -63,16 +88,47 @@ function getInitials(name: string): string {
 }
 
 // Column colors
-const columnColors: Record<string, { bg: string; border: string; count: string; headerBg: string }> = {
-  pending_unassigned: { bg: "bg-[#F7F5F0]", border: "border-[#E8E4DB]", count: "text-[#6B6B65]", headerBg: "bg-[#FDFCF8]" },
-  pending_assigned: { bg: "bg-[#EEF4FF]", border: "border-[#C7D2FE]", count: "text-[#4F46E5]", headerBg: "bg-[#E0E7FF]" },
-  in_progress: { bg: "bg-[#FEF3C7]", border: "border-[#FCD34D]", count: "text-[#D97706]", headerBg: "bg-[#FDE68A]" },
-  completed: { bg: "bg-[#ECFDF5]", border: "border-[#A7F3D0]", count: "text-[#059669]", headerBg: "bg-[#D1FAE5]" },
-  blocked: { bg: "bg-[#F3F4F6]", border: "border-[#D1D5DB]", count: "text-[#6B7280]", headerBg: "bg-[#E5E7EB]" },
+const columnColors: Record<
+  string,
+  { bg: string; border: string; count: string; headerBg: string }
+> = {
+  pending_unassigned: {
+    bg: "bg-[#F7F5F0]",
+    border: "border-[#E8E4DB]",
+    count: "text-[#6B6B65]",
+    headerBg: "bg-[#FDFCF8]",
+  },
+  pending_assigned: {
+    bg: "bg-[#EEF4FF]",
+    border: "border-[#C7D2FE]",
+    count: "text-[#4F46E5]",
+    headerBg: "bg-[#E0E7FF]",
+  },
+  in_progress: {
+    bg: "bg-[#FEF3C7]",
+    border: "border-[#FCD34D]",
+    count: "text-[#D97706]",
+    headerBg: "bg-[#FDE68A]",
+  },
+  completed: {
+    bg: "bg-[#ECFDF5]",
+    border: "border-[#A7F3D0]",
+    count: "text-[#059669]",
+    headerBg: "bg-[#D1FAE5]",
+  },
+  blocked: {
+    bg: "bg-[#F3F4F6]",
+    border: "border-[#D1D5DB]",
+    count: "text-[#6B7280]",
+    headerBg: "bg-[#E5E7EB]",
+  },
 };
 
 // Priority styles
-const priorityStyles: Record<string, { bg: string; text: string; label: string }> = {
+const priorityStyles: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
   low: { bg: "bg-gray-100", text: "text-gray-600", label: "Low" },
   medium: { bg: "bg-blue-100", text: "text-blue-600", label: "Medium" },
   high: { bg: "bg-amber-100", text: "text-amber-600", label: "High" },
@@ -88,9 +144,19 @@ interface TaskCardProps {
   onDragEnd?: () => void;
 }
 
-function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskCardProps) {
-  const priority = (priorityStyles[task.priority] || priorityStyles.medium) as { bg: string; text: string; label: string };
-  
+function TaskCard({
+  task,
+  assignees,
+  isDragging,
+  onDragStart,
+  onDragEnd,
+}: TaskCardProps) {
+  const priority = (priorityStyles[task.priority] || priorityStyles.medium) as {
+    bg: string;
+    text: string;
+    label: string;
+  };
+
   const handleDragStart = (e: React.DragEvent) => {
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("taskId", task._id);
@@ -111,16 +177,18 @@ function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskC
         `}
       >
         <div className="flex items-start gap-2">
-          <div 
+          <div
             className="mt-1 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
             onClick={(e) => e.preventDefault()}
           >
             <GripVertical className="h-4 w-4 text-[#8A8A82]" />
           </div>
-          
+
           <div className="flex-1 min-w-0 space-y-3">
             {/* Priority badge */}
-            <Badge className={`${priority.bg} ${priority.text} border-0 text-[10px] font-semibold uppercase tracking-wide`}>
+            <Badge
+              className={`${priority.bg} ${priority.text} border-0 text-[10px] font-semibold uppercase tracking-wide`}
+            >
               {priority.label}
             </Badge>
 
@@ -132,8 +200,8 @@ function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskC
             {/* Description preview */}
             {task.description && (
               <p className="text-[13px] text-[#6B6B65] leading-relaxed line-clamp-2">
-                {task.description.length > 100 
-                  ? task.description.slice(0, 100) + "..." 
+                {task.description.length > 100
+                  ? task.description.slice(0, 100) + "..."
                   : task.description}
               </p>
             )}
@@ -148,7 +216,9 @@ function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskC
                       <Avatar
                         key={assignee._id}
                         className="h-6 w-6 rounded-[4px] border-2 border-[#FDFCF8]"
-                        style={{ backgroundColor: getAgentColor(assignee.name) }}
+                        style={{
+                          backgroundColor: getAgentColor(assignee.name),
+                        }}
                       >
                         <AvatarFallback className="text-[9px] text-[#FDFCF8] bg-transparent">
                           {getInitials(assignee.name)}
@@ -170,19 +240,28 @@ function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskC
 
               {/* Task menu */}
               <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.preventDefault()}>
+                <DropdownMenuTrigger
+                  asChild
+                  onClick={(e) => e.preventDefault()}
+                >
                   <button className="p-1 rounded hover:bg-[#F0EDE6] transition-colors">
                     <MoreHorizontal className="h-4 w-4 text-[#8A8A82]" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-[#FDFCF8] border-[#E8E4DB]">
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-[#FDFCF8] border-[#E8E4DB]"
+                >
                   <DropdownMenuItem onClick={(e) => e.preventDefault()}>
                     Edit Task
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={(e) => e.preventDefault()}>
                     Assign Agent
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => e.preventDefault()} className="text-red-600">
+                  <DropdownMenuItem
+                    onClick={(e) => e.preventDefault()}
+                    className="text-red-600"
+                  >
                     Delete
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -197,7 +276,7 @@ function TaskCard({ task, assignees, isDragging, onDragStart, onDragEnd }: TaskC
 
 // Column Component
 interface ColumnProps {
-  column: typeof columns[number];
+  column: (typeof columns)[number];
   tasks: any[];
   agents: any[];
   onDrop: (taskId: string, columnId: string) => void;
@@ -205,7 +284,13 @@ interface ColumnProps {
 
 function KanbanColumn({ column, tasks, agents, onDrop }: ColumnProps) {
   const [isDragOver, setIsDragOver] = React.useState(false);
-  const colors = (columnColors[column.id] || columnColors.pending_unassigned) as { bg: string; border: string; count: string; headerBg: string };
+  const colors = (columnColors[column.id] ||
+    columnColors.pending_unassigned) as {
+    bg: string;
+    border: string;
+    count: string;
+    headerBg: string;
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -235,25 +320,27 @@ function KanbanColumn({ column, tasks, agents, onDrop }: ColumnProps) {
   return (
     <div className="flex-shrink-0 w-72 flex flex-col">
       {/* Column Header */}
-      <div className={`
+      <div
+        className={`
         p-3 rounded-t-lg border-t border-x ${colors.bg} ${colors.border}
         ${isDragOver ? "ring-2 ring-[#C75B39] ring-opacity-50" : ""}
-      `}>
+      `}
+      >
         <div className="flex items-center justify-between mb-1">
           <h2 className="font-serif text-sm font-semibold text-[#1A1A1A]">
             {column.label}
           </h2>
-          <span className={`text-xs font-medium ${colors.count} bg-white/50 px-2 py-0.5 rounded-full`}>
+          <span
+            className={`text-xs font-medium ${colors.count} bg-white/50 px-2 py-0.5 rounded-full`}
+          >
             {tasks.length}
           </span>
         </div>
-        <p className="text-[11px] text-[#6B6B65]">
-          {column.description}
-        </p>
+        <p className="text-[11px] text-[#6B6B65]">{column.description}</p>
       </div>
 
       {/* Column Content */}
-      <div 
+      <div
         className={`
           flex-1 bg-[#F7F5F0] border-x border-b ${colors.border}
           rounded-b-lg p-3 min-h-[500px]
@@ -302,15 +389,25 @@ export default function TasksPage() {
   const getTasksForColumn = (columnId: string) => {
     return tasks.filter((task: any) => {
       // Search filter
-      if (searchQuery && !task.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (
+        searchQuery &&
+        !task.title.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
         return false;
       }
 
       switch (columnId) {
         case "pending_unassigned":
-          return task.status === "pending" && (!task.assigneeIds || task.assigneeIds.length === 0);
+          return (
+            task.status === "pending" &&
+            (!task.assigneeIds || task.assigneeIds.length === 0)
+          );
         case "pending_assigned":
-          return task.status === "pending" && task.assigneeIds && task.assigneeIds.length > 0;
+          return (
+            task.status === "pending" &&
+            task.assigneeIds &&
+            task.assigneeIds.length > 0
+          );
         case "in_progress":
           return task.status === "in_progress";
         case "completed":
@@ -391,11 +488,15 @@ export default function TasksPage() {
                 />
               </div>
 
-              <Button variant="outline" size="icon" className="border-[#E8E4DB]">
+              <Button
+                variant="outline"
+                size="icon"
+                className="border-[#E8E4DB]"
+              >
                 <Filter className="h-4 w-4 text-[#6B6B65]" />
               </Button>
 
-              <Button 
+              <Button
                 className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]"
                 onClick={() => setIsCreating(true)}
               >
@@ -433,14 +534,14 @@ export default function TasksPage() {
               Task creation would open a full form. This is a placeholder.
             </p>
             <div className="flex justify-end gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => setIsCreating(false)}
                 className="border-[#E8E4DB]"
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={() => setIsCreating(false)}
                 className="bg-[#C75B39] hover:bg-[#B54D2E] text-[#FDFCF8]"
               >

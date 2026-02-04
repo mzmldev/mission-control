@@ -3,8 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   CheckSquare,
   Clock,
   MessageSquare,
@@ -15,10 +15,10 @@ import {
   XCircle,
   AlertCircle,
   AtSign,
-  User
+  User,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -29,16 +29,16 @@ import { Textarea } from "@/components/ui/textarea";
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -58,25 +58,61 @@ function formatTimeAgo(timestamp?: number): string {
   if (!timestamp) return "Unknown";
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   if (diff < 60000) return "Just now";
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return `${Math.floor(diff / 86400000)}d ago`;
 }
 
-type TaskStatus = "pending" | "in_progress" | "completed" | "blocked" | "cancelled";
+type TaskStatus =
+  | "pending"
+  | "in_progress"
+  | "completed"
+  | "blocked"
+  | "cancelled";
 type TaskPriority = "low" | "medium" | "high" | "critical";
 
-const statusConfig: Record<TaskStatus, { label: string; color: string; bgColor: string; borderColor: string; }> = {
-  pending: { label: "Pending", color: "text-amber-600", bgColor: "bg-amber-50", borderColor: "border-amber-200" },
-  in_progress: { label: "In Progress", color: "text-blue-600", bgColor: "bg-blue-50", borderColor: "border-blue-200" },
-  completed: { label: "Completed", color: "text-emerald-600", bgColor: "bg-emerald-50", borderColor: "border-emerald-200" },
-  blocked: { label: "Blocked", color: "text-red-600", bgColor: "bg-red-50", borderColor: "border-red-200" },
-  cancelled: { label: "Cancelled", color: "text-gray-600", bgColor: "bg-gray-50", borderColor: "border-gray-200" },
+const statusConfig: Record<
+  TaskStatus,
+  { label: string; color: string; bgColor: string; borderColor: string }
+> = {
+  pending: {
+    label: "Pending",
+    color: "text-amber-600",
+    bgColor: "bg-amber-50",
+    borderColor: "border-amber-200",
+  },
+  in_progress: {
+    label: "In Progress",
+    color: "text-blue-600",
+    bgColor: "bg-blue-50",
+    borderColor: "border-blue-200",
+  },
+  completed: {
+    label: "Completed",
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-50",
+    borderColor: "border-emerald-200",
+  },
+  blocked: {
+    label: "Blocked",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    borderColor: "border-red-200",
+  },
+  cancelled: {
+    label: "Cancelled",
+    color: "text-gray-600",
+    bgColor: "bg-gray-50",
+    borderColor: "border-gray-200",
+  },
 };
 
-const priorityConfig: Record<TaskPriority, { label: string; color: string; bgColor: string; }> = {
+const priorityConfig: Record<
+  TaskPriority,
+  { label: string; color: string; bgColor: string }
+> = {
   low: { label: "Low", color: "text-gray-600", bgColor: "bg-gray-100" },
   medium: { label: "Medium", color: "text-blue-600", bgColor: "bg-blue-100" },
   high: { label: "High", color: "text-amber-600", bgColor: "bg-amber-100" },
@@ -86,16 +122,16 @@ const priorityConfig: Record<TaskPriority, { label: string; color: string; bgCol
 // Highlight mentions in text
 function HighlightMentions({ text, agents }: { text: string; agents: any[] }) {
   const parts = text.split(/(@[a-zA-Z0-9_\s]+?)(?=@|\s|$)/g);
-  
+
   return (
     <>
       {parts.map((part, index) => {
         if (part.startsWith("@")) {
           const mentionName = part.slice(1).trim();
-          const isValidMention = agents.some(a => 
-            a.name.toLowerCase() === mentionName.toLowerCase()
+          const isValidMention = agents.some(
+            (a) => a.name.toLowerCase() === mentionName.toLowerCase(),
           );
-          
+
           if (isValidMention) {
             return (
               <span
@@ -116,43 +152,48 @@ function HighlightMentions({ text, agents }: { text: string; agents: any[] }) {
 export default function TaskDetailPage() {
   const params = useParams();
   const taskId = params.id as string;
-  
+
   const task = useQuery(api.tasks.get, { id: taskId as any });
-  const messages = useQuery(api.messages.getByTask, { taskId: taskId as any }) || [];
+  const messages =
+    useQuery(api.messages.getByTask, { taskId: taskId as any }) || [];
   const allAgents = useQuery(api.agents.list) || [];
-  const activities = useQuery(api.activities.getByTask, { taskId: taskId as any }) || [];
-  
+  const activities =
+    useQuery(api.activities.getByTask, { taskId: taskId as any }) || [];
+
   const updateStatus = useMutation(api.tasks.updateStatus);
   const createMessage = useMutation(api.messages.create);
   const createNotification = useMutation(api.notifications.create);
   const createActivity = useMutation(api.activities.create);
-  
+
   const [comment, setComment] = React.useState("");
-  const [showMentionSuggestions, setShowMentionSuggestions] = React.useState(false);
+  const [showMentionSuggestions, setShowMentionSuggestions] =
+    React.useState(false);
   const [mentionQuery, setMentionQuery] = React.useState("");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   // Get assignee details
   const assignees = React.useMemo(() => {
     if (!task?.assigneeIds) return [];
-    return allAgents.filter((agent: any) => task.assigneeIds.includes(agent._id));
+    return allAgents.filter((agent: any) =>
+      task.assigneeIds.includes(agent._id),
+    );
   }, [task, allAgents]);
 
   // Filter agents for mentions
   const filteredAgents = mentionQuery
-    ? allAgents.filter((a: any) => 
-        a.name.toLowerCase().includes(mentionQuery.toLowerCase())
+    ? allAgents.filter((a: any) =>
+        a.name.toLowerCase().includes(mentionQuery.toLowerCase()),
       )
     : allAgents;
 
   const handleStatusChange = async (newStatus: string) => {
     if (!task) return;
-    
-    await updateStatus({ 
-      id: taskId as any, 
-      status: newStatus as any 
+
+    await updateStatus({
+      id: taskId as any,
+      status: newStatus as any,
     });
-    
+
     await createActivity({
       type: "status_changed",
       taskId: taskId as any,
@@ -162,16 +203,16 @@ export default function TaskDetailPage() {
 
   const handleAddComment = async () => {
     if (!comment.trim()) return;
-    
+
     // Parse mentions
     const mentionRegex = /@([a-zA-Z0-9_\s]+?)(?=@|\s|$)/g;
     const mentions: string[] = [];
     let match;
-    
+
     while ((match = mentionRegex.exec(comment)) !== null) {
       if (match[1]) mentions.push(match[1].trim());
     }
-    
+
     // Create message
     await createMessage({
       taskId: taskId as any,
@@ -179,11 +220,11 @@ export default function TaskDetailPage() {
       content: comment.trim(),
       messageType: "text",
     });
-    
+
     // Create notifications for mentioned agents
     for (const mentionName of mentions) {
-      const mentionedAgent = allAgents.find((a: any) => 
-        a.name.toLowerCase() === mentionName.toLowerCase()
+      const mentionedAgent = allAgents.find(
+        (a: any) => a.name.toLowerCase() === mentionName.toLowerCase(),
       );
       if (mentionedAgent) {
         await createNotification({
@@ -194,7 +235,7 @@ export default function TaskDetailPage() {
         });
       }
     }
-    
+
     setComment("");
     setShowMentionSuggestions(false);
   };
@@ -202,12 +243,12 @@ export default function TaskDetailPage() {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setComment(value);
-    
+
     // Check if we should show mention suggestions
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = value.slice(0, cursorPosition);
     const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
-    
+
     if (mentionMatch) {
       setShowMentionSuggestions(true);
       setMentionQuery(mentionMatch[1] || "");
@@ -221,15 +262,18 @@ export default function TaskDetailPage() {
     const cursorPosition = textareaRef.current?.selectionStart || 0;
     const textBeforeCursor = comment.slice(0, cursorPosition);
     const textAfterCursor = comment.slice(cursorPosition);
-    
+
     // Replace the @query with @AgentName
-    const newTextBeforeCursor = textBeforeCursor.replace(/@([a-zA-Z0-9_]*)$/, `@${agentName} `);
+    const newTextBeforeCursor = textBeforeCursor.replace(
+      /@([a-zA-Z0-9_]*)$/,
+      `@${agentName} `,
+    );
     const newMessage = newTextBeforeCursor + textAfterCursor;
-    
+
     setComment(newMessage);
     setShowMentionSuggestions(false);
     setMentionQuery("");
-    
+
     // Focus back on textarea
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -269,7 +313,9 @@ export default function TaskDetailPage() {
                   <h1 className="font-serif text-xl font-semibold text-[#1A1A1A]">
                     {task.title}
                   </h1>
-                  <Badge className={`${priority.bgColor} ${priority.color} border-0`}>
+                  <Badge
+                    className={`${priority.bgColor} ${priority.color} border-0`}
+                  >
                     {priority.label}
                   </Badge>
                 </div>
@@ -343,7 +389,7 @@ export default function TaskDetailPage() {
               <h2 className="font-serif text-lg font-semibold text-[#1A1A1A] mb-4">
                 Comments ({messages.length})
               </h2>
-              
+
               {/* Comment list */}
               <ScrollArea className="h-[300px] mb-4">
                 <div className="space-y-4">
@@ -351,19 +397,27 @@ export default function TaskDetailPage() {
                     <div className="text-center py-8">
                       <MessageSquare className="h-8 w-8 text-[#8A8A82] mx-auto mb-2" />
                       <p className="text-sm text-[#6B6B65]">No comments yet</p>
-                      <p className="text-xs text-[#8A8A82] mt-1">Start the conversation!</p>
+                      <p className="text-xs text-[#8A8A82] mt-1">
+                        Start the conversation!
+                      </p>
                     </div>
                   ) : (
                     messages.map((message: any) => {
-                      const agent = allAgents.find((a: any) => a._id === message.fromAgentId);
+                      const agent = allAgents.find(
+                        (a: any) => a._id === message.fromAgentId,
+                      );
                       return (
-                        <div 
-                          key={message._id} 
+                        <div
+                          key={message._id}
                           className="flex gap-3 p-3 bg-[#FDFCF8] rounded-md border border-[#E8E4DB]"
                         >
-                          <Avatar 
+                          <Avatar
                             className="h-8 w-8 rounded-[4px]"
-                            style={{ backgroundColor: agent ? getAgentColor(agent.name) : "#8A8A82" }}
+                            style={{
+                              backgroundColor: agent
+                                ? getAgentColor(agent.name)
+                                : "#8A8A82",
+                            }}
                           >
                             <AvatarFallback className="text-[10px] text-[#FDFCF8] bg-transparent">
                               {agent ? getInitials(agent.name) : "??"}
@@ -379,7 +433,10 @@ export default function TaskDetailPage() {
                               </span>
                             </div>
                             <p className="text-sm text-[#4A4A45]">
-                              <HighlightMentions text={message.content} agents={allAgents} />
+                              <HighlightMentions
+                                text={message.content}
+                                agents={allAgents}
+                              />
                             </p>
                           </div>
                         </div>
@@ -407,7 +464,7 @@ export default function TaskDetailPage() {
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
-                
+
                 {/* Mention Suggestions */}
                 {showMentionSuggestions && filteredAgents.length > 0 && (
                   <div className="absolute z-50 w-full mt-1 bg-[#FDFCF8] border border-[#E8E4DB] rounded-md shadow-lg max-h-40 overflow-auto">
@@ -417,7 +474,7 @@ export default function TaskDetailPage() {
                         onClick={() => insertMention(agent.name)}
                         className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#F0EDE6] transition-colors"
                       >
-                        <Avatar 
+                        <Avatar
                           className="h-6 w-6 rounded-[4px]"
                           style={{ backgroundColor: getAgentColor(agent.name) }}
                         >
@@ -426,7 +483,9 @@ export default function TaskDetailPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="text-left">
-                          <p className="text-sm font-medium text-[#1A1A1A]">{agent.name}</p>
+                          <p className="text-sm font-medium text-[#1A1A1A]">
+                            {agent.name}
+                          </p>
                           <p className="text-xs text-[#6B6B65]">{agent.role}</p>
                         </div>
                       </button>
@@ -464,10 +523,14 @@ export default function TaskDetailPage() {
               <h2 className="font-serif text-lg font-semibold text-[#1A1A1A] mb-4">
                 Status
               </h2>
-              <div className={`p-4 rounded-md border ${status.bgColor} ${status.borderColor}`}>
+              <div
+                className={`p-4 rounded-md border ${status.bgColor} ${status.borderColor}`}
+              >
                 <div className="flex items-center gap-2">
                   <CheckSquare className={`h-5 w-5 ${status.color}`} />
-                  <span className={`font-medium ${status.color}`}>{status.label}</span>
+                  <span className={`font-medium ${status.color}`}>
+                    {status.label}
+                  </span>
                 </div>
               </div>
             </Card>
@@ -487,7 +550,7 @@ export default function TaskDetailPage() {
                   assignees.map((agent: any) => (
                     <Link key={agent._id} href={`/agents/${agent._id}`}>
                       <div className="flex items-center gap-3 p-2 bg-[#FDFCF8] rounded-md border border-[#E8E4DB] hover:border-[#8A8A82] transition-colors cursor-pointer">
-                        <Avatar 
+                        <Avatar
                           className="h-8 w-8 rounded-[4px]"
                           style={{ backgroundColor: getAgentColor(agent.name) }}
                         >
@@ -496,7 +559,9 @@ export default function TaskDetailPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium text-[#1A1A1A]">{agent.name}</p>
+                          <p className="text-sm font-medium text-[#1A1A1A]">
+                            {agent.name}
+                          </p>
                           <p className="text-xs text-[#6B6B65]">{agent.role}</p>
                         </div>
                       </div>
@@ -514,14 +579,18 @@ export default function TaskDetailPage() {
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-[#6B6B65]">Created</span>
-                  <span className="text-[#1A1A1A]">{formatTimeAgo(task._creationTime)}</span>
+                  <span className="text-[#1A1A1A]">
+                    {formatTimeAgo(task._creationTime)}
+                  </span>
                 </div>
                 {task.dueDate && (
                   <>
                     <Separator className="bg-[#E8E4DB]" />
                     <div className="flex justify-between text-sm">
                       <span className="text-[#6B6B65]">Due Date</span>
-                      <span className="text-[#1A1A1A]">{new Date(task.dueDate).toLocaleDateString()}</span>
+                      <span className="text-[#1A1A1A]">
+                        {new Date(task.dueDate).toLocaleDateString()}
+                      </span>
                     </div>
                   </>
                 )}
@@ -530,7 +599,9 @@ export default function TaskDetailPage() {
                     <Separator className="bg-[#E8E4DB]" />
                     <div className="flex justify-between text-sm">
                       <span className="text-[#6B6B65]">Completed</span>
-                      <span className="text-[#1A1A1A]">{formatTimeAgo(task.completedAt)}</span>
+                      <span className="text-[#1A1A1A]">
+                        {formatTimeAgo(task.completedAt)}
+                      </span>
                     </div>
                   </>
                 )}

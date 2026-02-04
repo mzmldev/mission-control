@@ -3,19 +3,19 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { 
-  ArrowLeft, 
-  Bot, 
-  Clock, 
-  Activity, 
+import {
+  ArrowLeft,
+  Bot,
+  Clock,
+  Activity,
   MessageSquare,
   Send,
   CheckCircle,
   AlertCircle,
-  User
+  User,
 } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -26,16 +26,16 @@ import { SendMessageDialog } from "@/components/send-message-dialog";
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -55,7 +55,7 @@ function formatLastSeen(timestamp?: number): string {
   if (!timestamp) return "Unknown";
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   if (diff < 60000) return "Just now";
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
@@ -64,11 +64,34 @@ function formatLastSeen(timestamp?: number): string {
 
 type AgentStatus = "idle" | "busy" | "offline" | "error";
 
-const statusConfig: Record<AgentStatus, { label: string; color: string; bgColor: string; dotColor: string; }> = {
-  idle: { label: "Idle", color: "text-gray-600", bgColor: "bg-gray-100", dotColor: "bg-gray-400" },
-  busy: { label: "Active", color: "text-emerald-600", bgColor: "bg-emerald-50", dotColor: "bg-emerald-500" },
-  offline: { label: "Offline", color: "text-gray-500", bgColor: "bg-gray-50", dotColor: "bg-gray-300" },
-  error: { label: "Blocked", color: "text-red-600", bgColor: "bg-red-50", dotColor: "bg-red-500" },
+const statusConfig: Record<
+  AgentStatus,
+  { label: string; color: string; bgColor: string; dotColor: string }
+> = {
+  idle: {
+    label: "Idle",
+    color: "text-gray-600",
+    bgColor: "bg-gray-100",
+    dotColor: "bg-gray-400",
+  },
+  busy: {
+    label: "Active",
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-50",
+    dotColor: "bg-emerald-500",
+  },
+  offline: {
+    label: "Offline",
+    color: "text-gray-500",
+    bgColor: "bg-gray-50",
+    dotColor: "bg-gray-300",
+  },
+  error: {
+    label: "Blocked",
+    color: "text-red-600",
+    bgColor: "bg-red-50",
+    dotColor: "bg-red-500",
+  },
 };
 
 const activityIcons: Record<string, React.ReactNode> = {
@@ -86,12 +109,14 @@ const activityIcons: Record<string, React.ReactNode> = {
 export default function AgentDetailPage() {
   const params = useParams();
   const agentId = params.id as string;
-  
+
   const agent = useQuery(api.agents.get, { id: agentId as any });
-  const activities = useQuery(api.activities.getByAgent, { agentId: agentId as any }) || [];
-  const messages = useQuery(api.messages.getByAgent, { agentId: agentId as any }) || [];
-  const currentTask = agent?.currentTaskId 
-    ? useQuery(api.tasks.get, { id: agent.currentTaskId }) 
+  const activities =
+    useQuery(api.activities.getByAgent, { agentId: agentId as any }) || [];
+  const messages =
+    useQuery(api.messages.getByAgent, { agentId: agentId as any }) || [];
+  const currentTask = agent?.currentTaskId
+    ? useQuery(api.tasks.get, { id: agent.currentTaskId })
     : null;
 
   if (!agent) {
@@ -122,7 +147,7 @@ export default function AgentDetailPage() {
                 </Button>
               </Link>
               <div className="flex items-center gap-3">
-                <Avatar 
+                <Avatar
                   className="h-10 w-10 rounded-md"
                   style={{ backgroundColor: agentColor }}
                 >
@@ -161,22 +186,34 @@ export default function AgentDetailPage() {
               </h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#FDFCF8] rounded-md p-4 border border-[#E8E4DB]">
-                  <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">Status</p>
+                  <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">
+                    Status
+                  </p>
                   <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${status.dotColor}`} />
-                    <span className={`font-medium ${status.color}`}>{status.label}</span>
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${status.dotColor}`}
+                    />
+                    <span className={`font-medium ${status.color}`}>
+                      {status.label}
+                    </span>
                   </div>
                 </div>
                 <div className="bg-[#FDFCF8] rounded-md p-4 border border-[#E8E4DB]">
-                  <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">Last Seen</p>
+                  <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">
+                    Last Seen
+                  </p>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-[#6B6B65]" />
-                    <span className="text-[#1A1A1A]">{formatLastSeen(agent.lastSeen)}</span>
+                    <span className="text-[#1A1A1A]">
+                      {formatLastSeen(agent.lastSeen)}
+                    </span>
                   </div>
                 </div>
                 {agent.sessionKey && (
                   <div className="bg-[#FDFCF8] rounded-md p-4 border border-[#E8E4DB] col-span-2">
-                    <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">Session</p>
+                    <p className="text-xs text-[#6B6B65] uppercase tracking-wide mb-1">
+                      Session
+                    </p>
                     <div className="flex items-center gap-2">
                       <Bot className="h-4 w-4 text-[#6B6B65]" />
                       <code className="text-sm text-[#1A1A1A] font-mono bg-[#F0EDE6] px-2 py-1 rounded">
@@ -197,7 +234,9 @@ export default function AgentDetailPage() {
                 <Link href={`/tasks/${currentTask._id}`}>
                   <div className="bg-[#FDFCF8] rounded-md p-4 border border-[#E8E4DB] hover:border-[#8A8A82] transition-colors cursor-pointer">
                     <div className="flex items-start justify-between mb-2">
-                      <h3 className="font-medium text-[#1A1A1A]">{currentTask.title}</h3>
+                      <h3 className="font-medium text-[#1A1A1A]">
+                        {currentTask.title}
+                      </h3>
                       <Badge variant="secondary" className="text-xs">
                         {currentTask.status}
                       </Badge>
@@ -214,7 +253,9 @@ export default function AgentDetailPage() {
                   <Activity className="h-8 w-8 text-[#8A8A82] mx-auto mb-2" />
                   <p className="text-sm text-[#6B6B65]">No active task</p>
                   <p className="text-xs text-[#8A8A82] mt-1">
-                    {agent.status === "busy" ? "Working on a task not tracked in the system" : "Agent is idle"}
+                    {agent.status === "busy"
+                      ? "Working on a task not tracked in the system"
+                      : "Agent is idle"}
                   </p>
                 </div>
               )}
@@ -230,19 +271,25 @@ export default function AgentDetailPage() {
                   {activities.length === 0 ? (
                     <div className="text-center py-8">
                       <Activity className="h-8 w-8 text-[#8A8A82] mx-auto mb-2" />
-                      <p className="text-sm text-[#6B6B65]">No recent activities</p>
+                      <p className="text-sm text-[#6B6B65]">
+                        No recent activities
+                      </p>
                     </div>
                   ) : (
                     activities.map((activity: any) => (
-                      <div 
-                        key={activity._id} 
+                      <div
+                        key={activity._id}
                         className="flex items-start gap-3 p-3 bg-[#FDFCF8] rounded-md border border-[#E8E4DB]"
                       >
                         <div className="mt-0.5">
-                          {activityIcons[activity.type] || <Activity className="h-4 w-4 text-[#6B6B65]" />}
+                          {activityIcons[activity.type] || (
+                            <Activity className="h-4 w-4 text-[#6B6B65]" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#1A1A1A]">{activity.message}</p>
+                          <p className="text-sm text-[#1A1A1A]">
+                            {activity.message}
+                          </p>
                           <p className="text-xs text-[#8A8A82] mt-1">
                             {formatLastSeen(activity._creationTime)}
                           </p>
@@ -270,11 +317,13 @@ export default function AgentDetailPage() {
                     </div>
                   ) : (
                     messages.map((message: any) => (
-                      <div 
-                        key={message._id} 
+                      <div
+                        key={message._id}
                         className="p-3 bg-[#FDFCF8] rounded-md border border-[#E8E4DB]"
                       >
-                        <p className="text-sm text-[#1A1A1A]">{message.content}</p>
+                        <p className="text-sm text-[#1A1A1A]">
+                          {message.content}
+                        </p>
                         <p className="text-xs text-[#8A8A82] mt-2">
                           {formatLastSeen(message._creationTime)}
                         </p>

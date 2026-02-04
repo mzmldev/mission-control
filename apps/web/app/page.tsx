@@ -2,10 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { 
-  CheckSquare, 
-  Users, 
-  Clock, 
+import {
+  CheckSquare,
+  Users,
+  Clock,
   Activity as ActivityIcon,
   ArrowRight,
   Zap,
@@ -14,10 +14,10 @@ import {
   MessageSquare,
   FileText,
   User,
-  ArrowRightLeft
+  ArrowRightLeft,
 } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -53,16 +53,16 @@ const activityColors: Record<string, string> = {
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -81,17 +81,17 @@ function getInitials(name: string): string {
 function formatTimeAgo(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
-  
+
   const seconds = Math.floor(diff / 1000);
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (seconds < 60) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   if (days < 7) return `${days}d ago`;
-  
+
   const weeks = Math.floor(days / 7);
   return `${weeks}w ago`;
 }
@@ -99,7 +99,9 @@ function formatTimeAgo(timestamp: number): string {
 // Newspaper-style activity item
 function ActivityItem({ activity, agent }: { activity: any; agent?: any }) {
   const timeAgo = formatTimeAgo(activity._creationTime);
-  const icon = activityIcons[activity.type] || <ActivityIcon className="h-4 w-4 text-[#6B6B65]" />;
+  const icon = activityIcons[activity.type] || (
+    <ActivityIcon className="h-4 w-4 text-[#6B6B65]" />
+  );
   const colorClass = activityColors[activity.type] || "text-[#6B6B65]";
   const agentColor = agent ? getAgentColor(agent.name) : "#8A8A82";
   const agentInitials = agent ? getInitials(agent.name) : "??";
@@ -132,10 +134,10 @@ function ActivityItem({ activity, agent }: { activity: any; agent?: any }) {
             {timeAgo}
           </span>
         </div>
-        
+
         {agent && (
           <div className="flex items-center gap-2 mt-3">
-            <Avatar 
+            <Avatar
               className="h-6 w-6 rounded-[4px]"
               style={{ backgroundColor: agentColor }}
             >
@@ -156,18 +158,19 @@ function ActivityItem({ activity, agent }: { activity: any; agent?: any }) {
 function DateHeader({ timestamp }: { timestamp: number }) {
   const date = new Date(timestamp);
   const isToday = new Date().toDateString() === date.toDateString();
-  const isYesterday = new Date(Date.now() - 86400000).toDateString() === date.toDateString();
-  
-  let label = date.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
+  const isYesterday =
+    new Date(Date.now() - 86400000).toDateString() === date.toDateString();
+
+  let label = date.toLocaleDateString("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
   });
-  
+
   if (isToday) label = "Today";
   if (isYesterday) label = "Yesterday";
-  
+
   return (
     <div className="flex items-center gap-4 my-6">
       <div className="flex-1 h-px bg-[#E8E4DB]" />
@@ -188,7 +191,9 @@ export default function DashboardPage() {
   // Calculate stats
   const activeAgents = agents.filter((a: any) => a.status === "busy").length;
   const pendingTasks = tasks.filter((t: any) => t.status === "pending").length;
-  const inProgressTasks = tasks.filter((t: any) => t.status === "in_progress").length;
+  const inProgressTasks = tasks.filter(
+    (t: any) => t.status === "in_progress",
+  ).length;
   const completedToday = tasks.filter((t: any) => {
     if (t.status !== "completed" || !t.completedAt) return false;
     const completedDate = new Date(t.completedAt);
@@ -234,12 +239,12 @@ export default function DashboardPage() {
   // Group activities by date
   const groupedActivities = React.useMemo(() => {
     const groups: { date: number; items: any[] }[] = [];
-    
+
     activities.forEach((activity: any) => {
       const activityDate = new Date(activity._creationTime);
       activityDate.setHours(0, 0, 0, 0);
       const timestamp = activityDate.getTime();
-      
+
       const existingGroup = groups.find((g: any) => g.date === timestamp);
       if (existingGroup) {
         existingGroup.items.push(activity);
@@ -247,7 +252,7 @@ export default function DashboardPage() {
         groups.push({ date: timestamp, items: [activity] });
       }
     });
-    
+
     return groups.sort((a, b) => b.date - a.date);
   }, [activities]);
 
@@ -274,7 +279,10 @@ export default function DashboardPage() {
             <div className="flex items-center gap-3">
               <SendMessageDialog />
               <Link href="/tasks">
-                <Button variant="outline" className="border-[#E8E4DB] text-[#4A4A45]">
+                <Button
+                  variant="outline"
+                  className="border-[#E8E4DB] text-[#4A4A45]"
+                >
                   <CheckSquare className="h-4 w-4 mr-2" />
                   Task Board
                 </Button>
@@ -307,7 +315,9 @@ export default function DashboardPage() {
                   <p className="font-serif text-3xl font-semibold text-[#1A1A1A] mt-2">
                     {stat.value}
                   </p>
-                  <p className="text-xs text-[#8A8A82] mt-1">{stat.description}</p>
+                  <p className="text-xs text-[#8A8A82] mt-1">
+                    {stat.description}
+                  </p>
                 </div>
                 <div className={`${stat.bgColor} p-2.5 rounded-md`}>
                   <stat.icon className={`h-5 w-5 ${stat.color}`} />
@@ -370,13 +380,15 @@ export default function DashboardPage() {
                 Real-time stream of agent interactions and task updates
               </p>
             </div>
-            
+
             <ScrollArea className="h-[calc(100vh-380px)]">
               <div className="pr-4">
                 {groupedActivities.length === 0 ? (
                   <div className="py-12 text-center">
                     <ActivityIcon className="h-12 w-12 text-[#E8E4DB] mx-auto mb-4" />
-                    <p className="text-lg font-serif text-[#1A1A1A] mb-2">No activity yet</p>
+                    <p className="text-lg font-serif text-[#1A1A1A] mb-2">
+                      No activity yet
+                    </p>
                     <p className="text-sm text-[#6B6B65]">
                       Activities will appear here as agents work
                     </p>
@@ -387,9 +399,9 @@ export default function DashboardPage() {
                       <DateHeader timestamp={group.date} />
                       <div className="space-y-1">
                         {group.items.map((activity: any) => (
-                          <ActivityItem 
-                            key={activity._id} 
-                            activity={activity} 
+                          <ActivityItem
+                            key={activity._id}
+                            activity={activity}
                             agent={getAgent(activity.agentId)}
                           />
                         ))}
@@ -418,7 +430,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#6B6B65]">Agent Pool</span>
-                  <span className="text-xs text-[#4A4A45]">{agents.length} agents</span>
+                  <span className="text-xs text-[#4A4A45]">
+                    {agents.length} agents
+                  </span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-[#6B6B65]">Queue Health</span>
@@ -435,25 +449,32 @@ export default function DashboardPage() {
                 Active Agents ({activeAgents})
               </h3>
               <div className="space-y-2">
-                {agents.filter((a: any) => a.status === "busy").slice(0, 5).map((agent: any) => (
-                  <Link key={agent._id} href={`/agents/${agent._id}`}>
-                    <div className="flex items-center gap-3 p-2 rounded-md hover:bg-[#FDFCF8] transition-colors cursor-pointer">
-                      <Avatar 
-                        className="h-8 w-8 rounded-[4px]"
-                        style={{ backgroundColor: getAgentColor(agent.name) }}
-                      >
-                        <AvatarFallback className="text-[10px] text-[#FDFCF8] bg-transparent">
-                          {getInitials(agent.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[#1A1A1A] truncate">{agent.name}</p>
-                        <p className="text-xs text-[#6B6B65] truncate">{agent.role}</p>
+                {agents
+                  .filter((a: any) => a.status === "busy")
+                  .slice(0, 5)
+                  .map((agent: any) => (
+                    <Link key={agent._id} href={`/agents/${agent._id}`}>
+                      <div className="flex items-center gap-3 p-2 rounded-md hover:bg-[#FDFCF8] transition-colors cursor-pointer">
+                        <Avatar
+                          className="h-8 w-8 rounded-[4px]"
+                          style={{ backgroundColor: getAgentColor(agent.name) }}
+                        >
+                          <AvatarFallback className="text-[10px] text-[#FDFCF8] bg-transparent">
+                            {getInitials(agent.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                            {agent.name}
+                          </p>
+                          <p className="text-xs text-[#6B6B65] truncate">
+                            {agent.role}
+                          </p>
+                        </div>
+                        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                       </div>
-                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                    </div>
-                  </Link>
-                ))}
+                    </Link>
+                  ))}
                 {activeAgents === 0 && (
                   <p className="text-sm text-[#8A8A82]">No active agents</p>
                 )}
@@ -477,8 +498,11 @@ export default function DashboardPage() {
                       </div>
                     </Link>
                   ))}
-                {tasks.filter((t: any) => t.status === "completed").length === 0 && (
-                  <p className="text-sm text-[#8A8A82]">No completed tasks yet</p>
+                {tasks.filter((t: any) => t.status === "completed").length ===
+                  0 && (
+                  <p className="text-sm text-[#8A8A82]">
+                    No completed tasks yet
+                  </p>
                 )}
               </div>
             </Card>

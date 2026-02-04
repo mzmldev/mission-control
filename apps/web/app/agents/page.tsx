@@ -2,32 +2,25 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { 
-  Users, 
-  Plus, 
-  Search,
-  ArrowLeft,
-  LayoutGrid,
-  List
-} from "lucide-react";
+import { Users, Plus, Search, ArrowLeft, LayoutGrid, List } from "lucide-react";
 import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AgentCard } from "@/components/agent-card";
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -62,10 +55,10 @@ export default function AgentsPage() {
 
   // Map agents to AgentCard format with current task info
   const mappedAgents = agents.map((agent: any) => {
-    const currentTask = agent.currentTaskId 
+    const currentTask = agent.currentTaskId
       ? tasks.find((t: any) => t._id === agent.currentTaskId)
       : null;
-    
+
     return {
       id: agent._id,
       name: agent.name,
@@ -80,9 +73,10 @@ export default function AgentsPage() {
   });
 
   // Filter agents
-  const filteredAgents = mappedAgents.filter((agent: any) =>
-    agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    agent.role.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredAgents = mappedAgents.filter(
+    (agent: any) =>
+      agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      agent.role.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   // Group by status
@@ -110,7 +104,8 @@ export default function AgentsPage() {
                   Agent Directory
                 </h1>
                 <p className="text-xs text-[#6B6B65]">
-                  {stats.active} active · {stats.idle} idle · {stats.offline} offline
+                  {stats.active} active · {stats.idle} idle · {stats.offline}{" "}
+                  offline
                 </p>
               </div>
             </div>
@@ -193,10 +188,7 @@ export default function AgentsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredAgents.map((agent: any) => (
               <Link key={agent.id} href={`/agents/${agent.id}`}>
-                <AgentCard
-                  agent={agent}
-                  onClick={() => {}}
-                />
+                <AgentCard agent={agent} onClick={() => {}} />
               </Link>
             ))}
           </div>
@@ -212,10 +204,7 @@ export default function AgentsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {groupedAgents.active.map((agent: any) => (
                     <Link key={agent.id} href={`/agents/${agent.id}`}>
-                      <AgentCard
-                        agent={agent}
-                        onClick={() => {}}
-                      />
+                      <AgentCard agent={agent} onClick={() => {}} />
                     </Link>
                   ))}
                 </div>
@@ -232,10 +221,7 @@ export default function AgentsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {groupedAgents.idle.map((agent: any) => (
                     <Link key={agent.id} href={`/agents/${agent.id}`}>
-                      <AgentCard
-                        agent={agent}
-                        onClick={() => {}}
-                      />
+                      <AgentCard agent={agent} onClick={() => {}} />
                     </Link>
                   ))}
                 </div>
@@ -252,10 +238,7 @@ export default function AgentsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
                   {groupedAgents.offline.map((agent: any) => (
                     <Link key={agent.id} href={`/agents/${agent.id}`}>
-                      <AgentCard
-                        agent={agent}
-                        onClick={() => {}}
-                      />
+                      <AgentCard agent={agent} onClick={() => {}} />
                     </Link>
                   ))}
                 </div>
@@ -272,10 +255,7 @@ export default function AgentsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {groupedAgents.error.map((agent: any) => (
                     <Link key={agent.id} href={`/agents/${agent.id}`}>
-                      <AgentCard
-                        agent={agent}
-                        onClick={() => {}}
-                      />
+                      <AgentCard agent={agent} onClick={() => {}} />
                     </Link>
                   ))}
                 </div>

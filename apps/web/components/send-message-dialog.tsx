@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Send, AtSign, Bot } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { api } from "@repo/convex/convex/_generated/api";
 import {
   Dialog,
   DialogContent,
@@ -26,16 +26,16 @@ interface SendMessageDialogProps {
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
-  "Jarvis": "#1E3A5F",
-  "Shuri": "#0D7377",
-  "Fury": "#8B4513",
-  "Vision": "#4F46E5",
-  "Loki": "#059669",
-  "Quill": "#D97706",
-  "Wanda": "#BE185D",
-  "Pepper": "#C75B39",
-  "Friday": "#475569",
-  "Wong": "#78716C",
+  Jarvis: "#1E3A5F",
+  Shuri: "#0D7377",
+  Fury: "#8B4513",
+  Vision: "#4F46E5",
+  Loki: "#059669",
+  Quill: "#D97706",
+  Wanda: "#BE185D",
+  Pepper: "#C75B39",
+  Friday: "#475569",
+  Wong: "#78716C",
 };
 
 function getAgentColor(name: string): string {
@@ -56,27 +56,27 @@ function parseMentions(content: string): { text: string; mentions: string[] } {
   const mentionRegex = /@([a-zA-Z0-9_\s]+?)(?=@|\s|$)/g;
   const mentions: string[] = [];
   let match;
-  
+
   while ((match = mentionRegex.exec(content)) !== null) {
     if (match[1]) mentions.push(match[1].trim());
   }
-  
+
   return { text: content, mentions };
 }
 
 // Highlight mentions in text
 function HighlightMentions({ text, agents }: { text: string; agents: any[] }) {
   const parts = text.split(/(@[a-zA-Z0-9_\s]+?)(?=@|\s|$)/g);
-  
+
   return (
     <>
       {parts.map((part, index) => {
         if (part.startsWith("@")) {
           const mentionName = part.slice(1).trim();
-          const isValidMention = agents.some(a => 
-            a.name.toLowerCase() === mentionName.toLowerCase()
+          const isValidMention = agents.some(
+            (a) => a.name.toLowerCase() === mentionName.toLowerCase(),
           );
-          
+
           if (isValidMention) {
             return (
               <span
@@ -94,40 +94,47 @@ function HighlightMentions({ text, agents }: { text: string; agents: any[] }) {
   );
 }
 
-export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMessageDialogProps) {
+export function SendMessageDialog({
+  trigger,
+  defaultAgentId,
+  children,
+}: SendMessageDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [message, setMessage] = React.useState("");
-  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(defaultAgentId || null);
-  const [showMentionSuggestions, setShowMentionSuggestions] = React.useState(false);
+  const [selectedAgentId, setSelectedAgentId] = React.useState<string | null>(
+    defaultAgentId || null,
+  );
+  const [showMentionSuggestions, setShowMentionSuggestions] =
+    React.useState(false);
   const [mentionQuery, setMentionQuery] = React.useState("");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
-  
+
   const agents = useQuery(api.agents.list) || [];
   const sendMessage = useMutation(api.messages.create);
   const createNotification = useMutation(api.notifications.create);
 
   // Filter agents for mentions
   const filteredAgents = mentionQuery
-    ? agents.filter((a: any) => 
-        a.name.toLowerCase().includes(mentionQuery.toLowerCase())
+    ? agents.filter((a: any) =>
+        a.name.toLowerCase().includes(mentionQuery.toLowerCase()),
       )
     : agents;
 
   const handleSend = async () => {
     if (!message.trim() || !selectedAgentId) return;
-    
+
     const { mentions } = parseMentions(message);
-    
+
     await sendMessage({
       fromAgentId: selectedAgentId as any,
       content: message.trim(),
       messageType: "text",
     });
-    
+
     // Create notifications for mentioned agents
     for (const mentionName of mentions) {
-      const mentionedAgent = agents.find((a: any) => 
-        a.name.toLowerCase() === mentionName.toLowerCase()
+      const mentionedAgent = agents.find(
+        (a: any) => a.name.toLowerCase() === mentionName.toLowerCase(),
       );
       if (mentionedAgent) {
         await createNotification({
@@ -137,7 +144,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
         });
       }
     }
-    
+
     setMessage("");
     setOpen(false);
   };
@@ -145,12 +152,12 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setMessage(value);
-    
+
     // Check if we should show mention suggestions
     const cursorPosition = e.target.selectionStart;
     const textBeforeCursor = value.slice(0, cursorPosition);
     const mentionMatch = textBeforeCursor.match(/@([a-zA-Z0-9_]*)$/);
-    
+
     if (mentionMatch) {
       setShowMentionSuggestions(true);
       setMentionQuery(mentionMatch[1] || "");
@@ -164,15 +171,18 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
     const cursorPosition = textareaRef.current?.selectionStart || 0;
     const textBeforeCursor = message.slice(0, cursorPosition);
     const textAfterCursor = message.slice(cursorPosition);
-    
+
     // Replace the @query with @AgentName
-    const newTextBeforeCursor = textBeforeCursor.replace(/@([a-zA-Z0-9_]*)$/, `@${agentName} `);
+    const newTextBeforeCursor = textBeforeCursor.replace(
+      /@([a-zA-Z0-9_]*)$/,
+      `@${agentName} `,
+    );
     const newMessage = newTextBeforeCursor + textAfterCursor;
-    
+
     setMessage(newMessage);
     setShowMentionSuggestions(false);
     setMentionQuery("");
-    
+
     // Focus back on textarea
     setTimeout(() => {
       textareaRef.current?.focus();
@@ -191,7 +201,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
           </Button>
         )}
       </DialogTrigger>
-      
+
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Send Message</DialogTitle>
@@ -199,7 +209,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
             Send a message to the team. Use @ to mention agents.
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           {/* Agent Selection */}
           <div>
@@ -218,7 +228,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
                         : "border-[#E8E4DB] hover:border-[#8A8A82]"
                     }`}
                   >
-                    <Avatar 
+                    <Avatar
                       className="h-6 w-6 rounded-[4px]"
                       style={{ backgroundColor: getAgentColor(agent.name) }}
                     >
@@ -235,7 +245,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
               </div>
             </ScrollArea>
           </div>
-          
+
           {/* Message Input */}
           <div className="relative">
             <label className="text-sm font-medium text-[#1A1A1A] mb-2 block">
@@ -251,7 +261,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
               />
               <AtSign className="absolute right-3 top-3 h-4 w-4 text-[#8A8A82]" />
             </div>
-            
+
             {/* Mention Suggestions */}
             {showMentionSuggestions && filteredAgents.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-[#FDFCF8] border border-[#E8E4DB] rounded-md shadow-lg max-h-40 overflow-auto">
@@ -261,7 +271,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
                     onClick={() => insertMention(agent.name)}
                     className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#F0EDE6] transition-colors"
                   >
-                    <Avatar 
+                    <Avatar
                       className="h-6 w-6 rounded-[4px]"
                       style={{ backgroundColor: getAgentColor(agent.name) }}
                     >
@@ -270,7 +280,9 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
                       </AvatarFallback>
                     </Avatar>
                     <div className="text-left">
-                      <p className="text-sm font-medium text-[#1A1A1A]">{agent.name}</p>
+                      <p className="text-sm font-medium text-[#1A1A1A]">
+                        {agent.name}
+                      </p>
                       <p className="text-xs text-[#6B6B65]">{agent.role}</p>
                     </div>
                   </button>
@@ -278,7 +290,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
               </div>
             )}
           </div>
-          
+
           {/* Preview */}
           {message && (
             <div className="bg-[#F7F5F0] rounded-md p-3 border border-[#E8E4DB]">
@@ -288,7 +300,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
               </p>
             </div>
           )}
-          
+
           {/* Quick mentions */}
           <div>
             <p className="text-xs text-[#6B6B65] mb-2">Quick mentions:</p>
@@ -309,7 +321,7 @@ export function SendMessageDialog({ trigger, defaultAgentId, children }: SendMes
             </div>
           </div>
         </div>
-        
+
         <DialogFooter>
           <Button
             variant="outline"
