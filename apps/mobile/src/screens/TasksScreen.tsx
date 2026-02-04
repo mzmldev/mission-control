@@ -136,12 +136,23 @@ export function TasksScreen() {
   const [createOpen, setCreateOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<any | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<any | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingAssignees, setIsSavingAssignees] = useState(false);
 
   const documents =
     useQuery(
       api.documents.getByTask,
+      detailTask ? { taskId: detailTask._id } : "skip",
+    ) || [];
+  const messages =
+    useQuery(
+      api.messages.getByTask,
+      detailTask ? { taskId: detailTask._id } : "skip",
+    ) || [];
+  const activities =
+    useQuery(
+      api.activities.getByTask,
       detailTask ? { taskId: detailTask._id } : "skip",
     ) || [];
 
@@ -168,8 +179,15 @@ export function TasksScreen() {
   }, [detailTask]);
 
   useEffect(() => {
+    if (!editOpen && detailTask) {
+      setAssigneesDraft(detailTask.assigneeIds || []);
+    }
+  }, [editOpen, detailTask]);
+
+  useEffect(() => {
     if (!detailTask) {
       setSelectedDocument(null);
+      setEditOpen(false);
     }
   }, [detailTask]);
 
@@ -259,6 +277,7 @@ export function TasksScreen() {
         id: detailTask._id as any,
         assigneeIds: assigneesDraft as any,
       });
+      setEditOpen(false);
     } finally {
       setIsSavingAssignees(false);
     }
@@ -269,9 +288,13 @@ export function TasksScreen() {
     return agents.filter((agent: any) => task.assigneeIds.includes(agent._id));
   };
 
+  const getAgentById = (agentId?: string) => {
+    if (!agentId) return undefined;
+    return agents.find((item: any) => item._id === agentId);
+  };
+
   const getAgentName = (agentId?: string) => {
-    if (!agentId) return "Unknown";
-    const agent = agents.find((item: any) => item._id === agentId);
+    const agent = getAgentById(agentId);
     return agent ? agent.name : "Unknown";
   };
 
@@ -314,6 +337,8 @@ export function TasksScreen() {
 
     return body;
   };
+
+  const detailAssignees = detailTask ? getTaskAssignees(detailTask) : [];
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>
@@ -674,16 +699,29 @@ export function TasksScreen() {
               >
                 <View style={styles.modalHeader}>
                   <Text style={styles.modalTitle}>Task Details</Text>
-                  <Pressable
-                    style={styles.iconButton}
-                    onPress={() => setDetailTask(null)}
-                  >
-                    <Ionicons
-                      name="close"
-                      size={18}
-                      color={colors.inkTertiary}
-                    />
-                  </Pressable>
+                  <View style={styles.modalHeaderActions}>
+                    <Pressable
+                      style={styles.editButton}
+                      onPress={() => setEditOpen(true)}
+                    >
+                      <Ionicons
+                        name="create-outline"
+                        size={14}
+                        color={colors.inkSecondary}
+                      />
+                      <Text style={styles.editButtonText}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      style={styles.iconButton}
+                      onPress={() => setDetailTask(null)}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={18}
+                        color={colors.inkTertiary}
+                      />
+                    </Pressable>
+                  </View>
                 </View>
                 <Text style={styles.taskDetailTitle}>{detailTask.title}</Text>
                 {detailTask.description ? (
@@ -728,19 +766,214 @@ export function TasksScreen() {
                   </View>
                 </View>
 
-                {detailTask.dueDate ? (
-                  <View style={styles.dueWrap}>
-                    <Ionicons
-                      name="calendar"
-                      size={12}
-                      color={colors.inkMuted}
-                    />
-                    <Text style={styles.dueText}>
-                      Due{" "}
-                      {new Date(detailTask.dueDate).toLocaleDateString("en-US")}
-                    </Text>
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>Details</Text>
+                  <View style={styles.detailList}>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>Created</Text>
+                      <Text style={styles.detailValue}>
+                        {formatTimeAgo(detailTask._creationTime)}
+                      </Text>
+                    </View>
+                    {detailTask.dueDate ? (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Due Date</Text>
+                        <Text style={styles.detailValue}>
+                          {new Date(detailTask.dueDate).toLocaleDateString(
+                            "en-US",
+                          )}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {detailTask.completedAt ? (
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Completed</Text>
+                        <Text style={styles.detailValue}>
+                          {formatTimeAgo(detailTask.completedAt)}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
-                ) : null}
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>
+                    Assignees ({detailAssignees.length})
+                  </Text>
+                  {detailAssignees.length === 0 ? (
+                    <Text style={styles.mutedText}>Unassigned</Text>
+                  ) : (
+                    <View style={styles.assigneeList}>
+                      {detailAssignees.map((agent: any) => (
+                        <View key={agent._id} style={styles.assigneeItem}>
+                          <Avatar name={agent.name} size={28} />
+                          <View style={styles.assigneeInfo}>
+                            <Text style={styles.assigneeName}>
+                              {agent.name}
+                            </Text>
+                            <Text style={styles.assigneeRole}>
+                              {agent.role}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>
+                    Documents ({documents.length})
+                  </Text>
+                  {documents.length === 0 ? (
+                    <Text style={styles.mutedText}>No documents yet.</Text>
+                  ) : (
+                    <View style={styles.documentsList}>
+                      {documents.map((document: any) => (
+                        <Pressable
+                          key={document._id}
+                          style={styles.documentCard}
+                          onPress={() => setSelectedDocument(document)}
+                        >
+                          <View style={styles.documentRow}>
+                            <View style={styles.documentIcon}>
+                              <Ionicons
+                                name="document-text"
+                                size={16}
+                                color={colors.inkSecondary}
+                              />
+                            </View>
+                            <View style={styles.documentInfo}>
+                              <Text style={styles.documentTitle}>
+                                {document.title}
+                              </Text>
+                              <Text style={styles.documentMeta}>
+                                {(document.type || "text").toUpperCase()} - v
+                                {document.version || 1} -{" "}
+                                {formatTimeAgo(document._creationTime)}
+                              </Text>
+                            </View>
+                            <Ionicons
+                              name="chevron-forward"
+                              size={16}
+                              color={colors.inkMuted}
+                            />
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>
+                    Messages ({messages.length})
+                  </Text>
+                  {messages.length === 0 ? (
+                    <Text style={styles.mutedText}>No messages yet.</Text>
+                  ) : (
+                    <View style={styles.messageList}>
+                      {messages.map((message: any) => {
+                        const agent = getAgentById(message.fromAgentId);
+                        const agentName = agent ? agent.name : "Unknown";
+                        return (
+                          <View key={message._id} style={styles.messageRow}>
+                            <Avatar name={agentName} size={28} />
+                            <View style={styles.messageContent}>
+                              <View style={styles.messageHeader}>
+                                <Text style={styles.messageAuthor}>
+                                  {agentName}
+                                </Text>
+                                <Text style={styles.messageTime}>
+                                  {formatTimeAgo(message._creationTime)}
+                                </Text>
+                              </View>
+                              <Text style={styles.messageText}>
+                                {message.content}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.modalLabel}>
+                    Activity ({activities.length})
+                  </Text>
+                  {activities.length === 0 ? (
+                    <Text style={styles.mutedText}>No activity yet.</Text>
+                  ) : (
+                    <View style={styles.activityList}>
+                      {activities.map((activity: any) => (
+                        <View key={activity._id} style={styles.activityRow}>
+                          <Text style={styles.activityMessage}>
+                            {activity.message}
+                          </Text>
+                          <Text style={styles.activityMeta}>
+                            {formatTimeAgo(activity._creationTime)} -{" "}
+                            {getAgentName(activity.agentId)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.modalFooter}>
+                  <Pressable
+                    style={styles.modalSecondary}
+                    onPress={() => setDetailTask(null)}
+                  >
+                    <Text style={styles.modalSecondaryText}>Close</Text>
+                  </Pressable>
+                </View>
+              </ScrollView>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
+      <Modal
+        visible={editOpen && !!detailTask}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditOpen(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable
+            style={styles.modalBackdrop}
+            onPress={() => setEditOpen(false)}
+          />
+          {detailTask ? (
+            <View
+              style={[
+                styles.modalSheet,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}
+            >
+              <ScrollView
+                contentContainerStyle={styles.modalScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Edit Task</Text>
+                  <Pressable
+                    style={styles.iconButton}
+                    onPress={() => setEditOpen(false)}
+                  >
+                    <Ionicons
+                      name="close"
+                      size={18}
+                      color={colors.inkTertiary}
+                    />
+                  </Pressable>
+                </View>
+                <Text style={styles.modalSubtitle}>
+                  Update status and assignees for this task.
+                </Text>
 
                 <View style={styles.modalSection}>
                   <Text style={styles.modalLabel}>Update Status</Text>
@@ -805,54 +1038,10 @@ export function TasksScreen() {
                   </ScrollView>
                 </View>
 
-                <View style={styles.modalSection}>
-                  <Text style={styles.modalLabel}>
-                    Documents ({documents.length})
-                  </Text>
-                  {documents.length === 0 ? (
-                    <Text style={styles.mutedText}>No documents yet.</Text>
-                  ) : (
-                    <View style={styles.documentsList}>
-                      {documents.map((document: any) => (
-                        <Pressable
-                          key={document._id}
-                          style={styles.documentCard}
-                          onPress={() => setSelectedDocument(document)}
-                        >
-                          <View style={styles.documentRow}>
-                            <View style={styles.documentIcon}>
-                              <Ionicons
-                                name="document-text"
-                                size={16}
-                                color={colors.inkSecondary}
-                              />
-                            </View>
-                            <View style={styles.documentInfo}>
-                              <Text style={styles.documentTitle}>
-                                {document.title}
-                              </Text>
-                              <Text style={styles.documentMeta}>
-                                {(document.type || "text").toUpperCase()} - v
-                                {document.version || 1} -{" "}
-                                {formatTimeAgo(document._creationTime)}
-                              </Text>
-                            </View>
-                            <Ionicons
-                              name="chevron-forward"
-                              size={16}
-                              color={colors.inkMuted}
-                            />
-                          </View>
-                        </Pressable>
-                      ))}
-                    </View>
-                  )}
-                </View>
-
                 <View style={styles.modalFooter}>
                   <Pressable
                     style={styles.modalSecondary}
-                    onPress={() => setDetailTask(null)}
+                    onPress={() => setEditOpen(false)}
                   >
                     <Text style={styles.modalSecondaryText}>Close</Text>
                   </Pressable>
@@ -1210,6 +1399,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  modalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  editButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: colors.bgMuted,
+    backgroundColor: colors.bgSecondary,
+  },
+  editButtonText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 11,
+    color: colors.inkSecondary,
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
   modalTitle: {
     fontFamily: fonts.serif,
     fontSize: 18,
@@ -1235,6 +1447,104 @@ const styles = StyleSheet.create({
     fontFamily: fonts.sansMedium,
     fontSize: 12,
     color: colors.inkPrimary,
+  },
+  detailList: {
+    gap: 8,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  detailLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: colors.inkTertiary,
+  },
+  detailValue: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.inkPrimary,
+  },
+  assigneeList: {
+    gap: 10,
+  },
+  assigneeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 6,
+  },
+  assigneeInfo: {
+    flex: 1,
+  },
+  assigneeName: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.inkPrimary,
+  },
+  assigneeRole: {
+    fontFamily: fonts.sans,
+    fontSize: 11,
+    color: colors.inkMuted,
+  },
+  messageList: {
+    gap: 12,
+  },
+  messageRow: {
+    flexDirection: "row",
+    gap: 10,
+    padding: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.bgMuted,
+    backgroundColor: colors.bgSecondary,
+  },
+  messageContent: {
+    flex: 1,
+    gap: 4,
+  },
+  messageHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 8,
+  },
+  messageAuthor: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.inkPrimary,
+  },
+  messageTime: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.inkMuted,
+  },
+  messageText: {
+    fontFamily: fonts.serifRegular,
+    fontSize: 13,
+    color: colors.inkSecondary,
+  },
+  activityList: {
+    gap: 10,
+  },
+  activityRow: {
+    padding: 10,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.bgMuted,
+    backgroundColor: colors.bgSecondary,
+    gap: 4,
+  },
+  activityMessage: {
+    fontFamily: fonts.serifRegular,
+    fontSize: 13,
+    color: colors.inkPrimary,
+  },
+  activityMeta: {
+    fontFamily: fonts.sans,
+    fontSize: 10,
+    color: colors.inkMuted,
   },
   documentsList: {
     gap: 10,
