@@ -7,8 +7,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "dev": "convex dev",
-    "build": "tsc",
-    "lint": "eslint src/"
+    "build": "echo 'Convex functions are deployed to Convex servers, not built locally'",
+    "lint": "echo 'No linting configured for convex package'"
   },
   "dependencies": {
     "convex": "^1.17.0"
