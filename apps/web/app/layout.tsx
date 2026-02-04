@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Source_Serif_4 } from "next/font/google";
 import "./globals.css";
+import { ConvexClientProvider } from "./ConvexClientProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -27,7 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${inter.variable} ${sourceSerif.variable}`}>
       <body className="font-sans antialiased">
-        {children}
+        <ConvexClientProvider>
+          {children}
+        </ConvexClientProvider>
       </body>
     </html>
   );

@@ -2,31 +2,37 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
+// List all notifications
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("notifications").order("desc").take(100);
+  },
+});
+
 // Get notifications for an agent
 export const getByAgent = query({
-  args: {
-    agentId: v.id("agents"),
-    includeDelivered: v.optional(v.boolean()),
-    limit: v.optional(v.number()),
-  },
+  args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
-    const limit = args.limit || 50;
-    
-    if (args.includeDelivered) {
-      return await ctx.db
-        .query("notifications")
-        .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
-        .order("desc")
-        .take(limit);
-    }
-    
+    return await ctx.db
+      .query("notifications")
+      .withIndex("by_agent", (q) => q.eq("agentId", args.agentId))
+      .order("desc")
+      .take(50);
+  },
+});
+
+// Get undelivered notifications for an agent
+export const getUndelivered = query({
+  args: { agentId: v.id("agents") },
+  handler: async (ctx, args) => {
     return await ctx.db
       .query("notifications")
       .withIndex("by_agent_delivered", (q) => 
         q.eq("agentId", args.agentId).eq("delivered", false)
       )
       .order("desc")
-      .take(limit);
+      .take(50);
   },
 });
 
@@ -35,20 +41,18 @@ export const create = mutation({
   args: {
     agentId: v.id("agents"),
     content: v.string(),
-    notificationType: v.optional(
-      v.union(
-        v.literal("info"),
-        v.literal("warning"),
-        v.literal("error"),
-        v.literal("success")
-      )
-    ),
+    notificationType: v.optional(v.union(
+      v.literal("info"),
+      v.literal("warning"),
+      v.literal("error"),
+      v.literal("success")
+    )),
     relatedTaskId: v.optional(v.id("tasks")),
-    metadata: v.optional(v.record(v.string(), v.any())),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("notifications", {
       ...args,
+      notificationType: args.notificationType || "info",
       delivered: false,
     });
   },
@@ -82,5 +86,13 @@ export const markAllDelivered = mutation({
         deliveredAt: Date.now(),
       });
     }
+  },
+});
+
+// Delete a notification
+export const remove = mutation({
+  args: { id: v.id("notifications") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
   },
 });

@@ -2,58 +2,73 @@
 import { v } from "convex/values";
 import { query, mutation } from "./_generated/server";
 
-// Get messages for a task
-export const getByTask = query({
-  args: {
-    taskId: v.id("tasks"),
-    limit: v.optional(v.number()),
+// List all messages
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("messages").order("desc").take(100);
   },
+});
+
+// Get messages by task
+export const getByTask = query({
+  args: { taskId: v.id("tasks") },
   handler: async (ctx, args) => {
-    const limit = args.limit || 100;
     return await ctx.db
       .query("messages")
       .withIndex("by_task_time", (q) => q.eq("taskId", args.taskId))
       .order("desc")
-      .take(limit);
+      .take(50);
   },
 });
 
 // Get messages by agent
 export const getByAgent = query({
-  args: {
-    agentId: v.id("agents"),
-    limit: v.optional(v.number()),
-  },
+  args: { agentId: v.id("agents") },
   handler: async (ctx, args) => {
-    const limit = args.limit || 100;
     return await ctx.db
       .query("messages")
       .withIndex("by_agent", (q) => q.eq("fromAgentId", args.agentId))
       .order("desc")
-      .take(limit);
+      .take(50);
   },
 });
 
-// Send a message
-export const send = mutation({
+// Create a message
+export const create = mutation({
   args: {
+    taskId: v.optional(v.id("tasks")),
     fromAgentId: v.id("agents"),
     content: v.string(),
-    taskId: v.optional(v.id("tasks")),
-    messageType: v.optional(
-      v.union(
-        v.literal("text"),
-        v.literal("system"),
-        v.literal("action"),
-        v.literal("error")
-      )
-    ),
-    metadata: v.optional(v.record(v.string(), v.any())),
+    messageType: v.optional(v.union(
+      v.literal("text"),
+      v.literal("system"),
+      v.literal("action"),
+      v.literal("error")
+    )),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("messages", {
+    const messageId = await ctx.db.insert("messages", {
       ...args,
       messageType: args.messageType || "text",
     });
+    
+    // Create activity for this message
+    await ctx.db.insert("activities", {
+      type: "message_sent",
+      agentId: args.fromAgentId,
+      taskId: args.taskId,
+      message: args.content.slice(0, 100),
+    });
+    
+    return messageId;
+  },
+});
+
+// Delete a message
+export const remove = mutation({
+  args: { id: v.id("messages") },
+  handler: async (ctx, args) => {
+    await ctx.db.delete(args.id);
   },
 });

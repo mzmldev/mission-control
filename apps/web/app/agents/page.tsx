@@ -10,137 +10,87 @@ import {
   LayoutGrid,
   List
 } from "lucide-react";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AgentCard } from "@/components/agent-card";
-import type { Agent } from "@/components/agent-card";
 
-// Mock agents data
-const mockAgents: Agent[] = [
-  {
-    id: "1",
-    name: "Jarvis",
-    role: "Senior Engineer",
-    status: "busy",
-    sessionKey: "sess_jarvis_001",
-    currentTaskTitle: "Update API Documentation",
-    currentTaskId: "task_3",
-    lastSeen: Date.now(),
-  },
-  {
-    id: "2",
-    name: "Shuri",
-    role: "DevOps Specialist",
-    status: "busy",
-    sessionKey: "sess_shuri_002",
-    currentTaskTitle: "Fix Login Bug",
-    currentTaskId: "task_4",
-    lastSeen: Date.now() - 1000 * 60 * 5, // 5 min ago
-  },
-  {
-    id: "3",
-    name: "Vision",
-    role: "Data Architect",
-    status: "busy",
-    sessionKey: "sess_vision_003",
-    currentTaskTitle: "Database Migration Script",
-    currentTaskId: "task_5",
-    lastSeen: Date.now() - 1000 * 60 * 2, // 2 min ago
-  },
-  {
-    id: "4",
-    name: "Loki",
-    role: "Content Creator",
-    status: "idle",
-    sessionKey: "sess_loki_004",
-    currentTaskTitle: "Q1 Blog Posts",
-    lastSeen: Date.now() - 1000 * 60 * 15, // 15 min ago
-  },
-  {
-    id: "5",
-    name: "Wanda",
-    role: "UX Designer",
-    status: "busy",
-    sessionKey: "sess_wanda_005",
-    currentTaskTitle: "Design New Landing Page",
-    currentTaskId: "task_7",
-    lastSeen: Date.now(),
-  },
-  {
-    id: "6",
-    name: "Pepper",
-    role: "Product Manager",
-    status: "busy",
-    sessionKey: "sess_pepper_006",
-    currentTaskTitle: "Design New Landing Page",
-    currentTaskId: "task_7",
-    lastSeen: Date.now() - 1000 * 60 * 30, // 30 min ago
-  },
-  {
-    id: "7",
-    name: "Fury",
-    role: "Security Lead",
-    status: "idle",
-    sessionKey: "sess_fury_007",
-    lastSeen: Date.now() - 1000 * 60 * 45, // 45 min ago
-  },
-  {
-    id: "8",
-    name: "Friday",
-    role: "System Analyst",
-    status: "offline",
-    sessionKey: "sess_friday_008",
-    lastSeen: Date.now() - 1000 * 60 * 60 * 2, // 2 hours ago
-  },
-  {
-    id: "9",
-    name: "Wong",
-    role: "Technical Writer",
-    status: "idle",
-    sessionKey: "sess_wong_009",
-    currentTaskTitle: "Team Onboarding Docs",
-    currentTaskId: "task_11",
-    lastSeen: Date.now() - 1000 * 60 * 10, // 10 min ago
-  },
-  {
-    id: "10",
-    name: "Quill",
-    role: "QA Engineer",
-    status: "error",
-    sessionKey: "sess_quill_010",
-    lastSeen: Date.now() - 1000 * 60 * 60, // 1 hour ago
-  },
-];
-
-// Stats
-const getAgentStats = (agents: Agent[]) => {
-  return {
-    total: agents.length,
-    active: agents.filter((a) => a.status === "busy").length,
-    idle: agents.filter((a) => a.status === "idle").length,
-    offline: agents.filter((a) => a.status === "offline").length,
-    error: agents.filter((a) => a.status === "error").length,
-  };
+// Agent color mapping
+const agentColors: Record<string, string> = {
+  "Jarvis": "#1E3A5F",
+  "Shuri": "#0D7377",
+  "Fury": "#8B4513",
+  "Vision": "#4F46E5",
+  "Loki": "#059669",
+  "Quill": "#D97706",
+  "Wanda": "#BE185D",
+  "Pepper": "#C75B39",
+  "Friday": "#475569",
+  "Wong": "#78716C",
 };
+
+function getAgentColor(name: string): string {
+  return agentColors[name] || "#475569";
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n: any) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 export default function AgentsPage() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid");
 
-  const stats = getAgentStats(mockAgents);
+  // Real-time query
+  const agents = useQuery(api.agents.list) || [];
+  const tasks = useQuery(api.tasks.list) || [];
+
+  // Calculate stats
+  const stats = {
+    total: agents.length,
+    active: agents.filter((a: any) => a.status === "busy").length,
+    idle: agents.filter((a: any) => a.status === "idle").length,
+    offline: agents.filter((a: any) => a.status === "offline").length,
+    error: agents.filter((a: any) => a.status === "error").length,
+  };
+
+  // Map agents to AgentCard format with current task info
+  const mappedAgents = agents.map((agent: any) => {
+    const currentTask = agent.currentTaskId 
+      ? tasks.find((t: any) => t._id === agent.currentTaskId)
+      : null;
+    
+    return {
+      id: agent._id,
+      name: agent.name,
+      role: agent.role,
+      status: agent.status as any,
+      sessionKey: agent.sessionKey,
+      currentTaskTitle: currentTask?.title,
+      currentTaskId: agent.currentTaskId,
+      lastSeen: agent.lastSeen,
+      color: getAgentColor(agent.name),
+    };
+  });
 
   // Filter agents
-  const filteredAgents = mockAgents.filter((agent) =>
+  const filteredAgents = mappedAgents.filter((agent: any) =>
     agent.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     agent.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Group by status
   const groupedAgents = {
-    active: filteredAgents.filter((a) => a.status === "busy"),
-    idle: filteredAgents.filter((a) => a.status === "idle"),
-    offline: filteredAgents.filter((a) => a.status === "offline"),
-    error: filteredAgents.filter((a) => a.status === "error"),
+    active: filteredAgents.filter((a: any) => a.status === "busy"),
+    idle: filteredAgents.filter((a: any) => a.status === "idle"),
+    offline: filteredAgents.filter((a: any) => a.status === "offline"),
+    error: filteredAgents.filter((a: any) => a.status === "error"),
   };
 
   return (
@@ -241,12 +191,13 @@ export default function AgentsPage() {
         {/* Agents display */}
         {viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredAgents.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                onClick={() => console.log("Agent clicked:", agent.id)}
-              />
+            {filteredAgents.map((agent: any) => (
+              <Link key={agent.id} href={`/agents/${agent.id}`}>
+                <AgentCard
+                  agent={agent}
+                  onClick={() => {}}
+                />
+              </Link>
             ))}
           </div>
         ) : (
@@ -259,12 +210,13 @@ export default function AgentsPage() {
                   Active ({groupedAgents.active.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedAgents.active.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      onClick={() => console.log("Agent clicked:", agent.id)}
-                    />
+                  {groupedAgents.active.map((agent: any) => (
+                    <Link key={agent.id} href={`/agents/${agent.id}`}>
+                      <AgentCard
+                        agent={agent}
+                        onClick={() => {}}
+                      />
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -278,12 +230,13 @@ export default function AgentsPage() {
                   Idle ({groupedAgents.idle.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedAgents.idle.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      onClick={() => console.log("Agent clicked:", agent.id)}
-                    />
+                  {groupedAgents.idle.map((agent: any) => (
+                    <Link key={agent.id} href={`/agents/${agent.id}`}>
+                      <AgentCard
+                        agent={agent}
+                        onClick={() => {}}
+                      />
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -297,12 +250,13 @@ export default function AgentsPage() {
                   Offline ({groupedAgents.offline.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-60">
-                  {groupedAgents.offline.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      onClick={() => console.log("Agent clicked:", agent.id)}
-                    />
+                  {groupedAgents.offline.map((agent: any) => (
+                    <Link key={agent.id} href={`/agents/${agent.id}`}>
+                      <AgentCard
+                        agent={agent}
+                        onClick={() => {}}
+                      />
+                    </Link>
                   ))}
                 </div>
               </section>
@@ -316,12 +270,13 @@ export default function AgentsPage() {
                   Blocked ({groupedAgents.error.length})
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {groupedAgents.error.map((agent) => (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      onClick={() => console.log("Agent clicked:", agent.id)}
-                    />
+                  {groupedAgents.error.map((agent: any) => (
+                    <Link key={agent.id} href={`/agents/${agent.id}`}>
+                      <AgentCard
+                        agent={agent}
+                        onClick={() => {}}
+                      />
+                    </Link>
                   ))}
                 </div>
               </section>
