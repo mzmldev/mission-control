@@ -43,7 +43,7 @@ export const getByAssignee = query({
   handler: async (ctx, args) => {
     return await ctx.db
       .query("tasks")
-      .withIndex("by_assignee", (q) => q.eq("assigneeIds", args.assigneeId))
+      .withIndex("by_assignee", (q) => q.eq("assigneeIds", args.assigneeId as any))
       .collect();
   },
 });

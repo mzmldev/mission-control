@@ -10,12 +10,16 @@ import {
   MessageSquare,
   Send,
   Play,
-  Pause,
   CheckCircle,
   XCircle,
   AlertCircle,
   AtSign,
   User,
+  FileText,
+  ChevronRight,
+  X,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@repo/convex/convex/_generated/api";
@@ -26,6 +30,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Agent color mapping
 const agentColors: Record<string, string> = {
@@ -149,6 +159,198 @@ function HighlightMentions({ text, agents }: { text: string; agents: any[] }) {
   );
 }
 
+// Document Viewer Dialog Component
+interface DocumentViewerDialogProps {
+  document: any;
+  isOpen: boolean;
+  onClose: () => void;
+  getAgentName: (agentId?: string) => string;
+}
+
+function DocumentViewerDialog({
+  document,
+  isOpen,
+  onClose,
+  getAgentName,
+}: DocumentViewerDialogProps) {
+  const [resolvedDocument, setResolvedDocument] = React.useState<any>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
+
+  const documentFromQuery = useQuery(
+    api.documents.get,
+    document?._id ? ({ id: document._id } as any) : "skip",
+  );
+
+  React.useEffect(() => {
+    if (isOpen && document) {
+      setIsLoading(true);
+      // Use the fallback document immediately, then update when query resolves
+      setResolvedDocument(document);
+    }
+  }, [isOpen, document]);
+
+  React.useEffect(() => {
+    if (documentFromQuery !== undefined) {
+      setResolvedDocument(documentFromQuery);
+      setIsLoading(false);
+    }
+  }, [documentFromQuery]);
+
+  const normalizeContent = (value: any): string => {
+    if (typeof value === "string") return value;
+    if (value === null || value === undefined) return "";
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (error) {
+      return String(value);
+    }
+  };
+
+  const handleCopyContent = async () => {
+    if (!resolvedDocument) return;
+    const { content } = getDocumentContent(resolvedDocument);
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
+  const getDocumentContent = (doc: any): { content: string; isCode: boolean; language?: string } => {
+    const rawContent = normalizeContent(doc?.content);
+    const content = rawContent.trim();
+    const type = doc?.type || "text";
+
+    if (type === "code") {
+      const language =
+        typeof doc?.metadata?.language === "string"
+          ? doc.metadata.language
+          : undefined;
+      return { content, isCode: true, language };
+    }
+
+    if (type === "json") {
+      return { content, isCode: true, language: "json" };
+    }
+
+    if (type === "markdown") {
+      return { content, isCode: false };
+    }
+
+    return { content, isCode: false };
+  };
+
+  if (!resolvedDocument) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh]">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <div className="animate-pulse h-8 w-8 bg-[#E8E4DB] rounded-full mx-auto mb-4" />
+              <p className="text-[#6B6B65]">Loading document...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const { content, isCode, language } = getDocumentContent(resolvedDocument);
+  const metadata = resolvedDocument.metadata || {};
+  const hasMetadata = Object.keys(metadata).length > 0;
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-3xl max-h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-[#E8E4DB]">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0 pr-4">
+              <DialogTitle className="text-xl font-serif text-[#1A1A1A]">
+                {resolvedDocument.title}
+              </DialogTitle>
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] uppercase tracking-wide bg-[#F0EDE6] text-[#6B6B65]"
+                >
+                  {(resolvedDocument.type || "text").toUpperCase()}
+                </Badge>
+                <span className="text-xs text-[#8A8A82]">
+                  v{resolvedDocument.version || 1}
+                </span>
+                <span className="text-xs text-[#8A8A82]">
+                  Created {formatTimeAgo(resolvedDocument._creationTime)}
+                </span>
+                <span className="text-xs text-[#8A8A82]">
+                  by {getAgentName(resolvedDocument.createdBy)}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleCopyContent}
+              className="flex items-center gap-2 border-[#E8E4DB] hover:bg-[#F0EDE6] flex-shrink-0"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-600">Copied!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4" />
+                  <span>Copy</span>
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogHeader>
+
+        <ScrollArea className="max-h-[calc(90vh-140px)]">
+          <div className="p-6 space-y-6">
+            {/* Document Content */}
+            <div className="bg-[#F7F5F0] rounded-lg border border-[#E8E4DB] p-4">
+              {isCode ? (
+                <pre className="text-sm text-[#1A1A1A] font-mono whitespace-pre-wrap overflow-x-auto">
+                  <code>{content || "_No content provided._"}</code>
+                </pre>
+              ) : (
+                <div className="prose prose-sm max-w-none">
+                  {content ? (
+                    <div className="text-[#1A1A1A] leading-relaxed whitespace-pre-wrap">
+                      {content}
+                    </div>
+                  ) : (
+                    <p className="text-[#8A8A82] italic">_No content provided._</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Metadata */}
+            {hasMetadata && (
+              <div>
+                <h3 className="text-sm font-semibold text-[#1A1A1A] mb-3">
+                  Metadata
+                </h3>
+                <div className="bg-[#F7F5F0] rounded-lg border border-[#E8E4DB] p-4">
+                  <pre className="text-xs text-[#1A1A1A] font-mono whitespace-pre-wrap overflow-x-auto">
+                    {JSON.stringify(metadata, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 export default function TaskDetailPage() {
   const params = useParams();
   const taskId = params.id as string;
@@ -159,6 +361,8 @@ export default function TaskDetailPage() {
   const allAgents = useQuery(api.agents.list) || [];
   const activities =
     useQuery(api.activities.getByTask, { taskId: taskId as any }) || [];
+  const documents =
+    useQuery(api.documents.getByTask, { taskId: taskId as any }) || [];
 
   const updateStatus = useMutation(api.tasks.updateStatus);
   const createMessage = useMutation(api.messages.create);
@@ -170,6 +374,10 @@ export default function TaskDetailPage() {
     React.useState(false);
   const [mentionQuery, setMentionQuery] = React.useState("");
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // Document viewer state
+  const [selectedDocument, setSelectedDocument] = React.useState<any>(null);
+  const [isDocumentViewerOpen, setIsDocumentViewerOpen] = React.useState(false);
 
   // Get assignee details
   const assignees = React.useMemo(() => {
@@ -216,7 +424,7 @@ export default function TaskDetailPage() {
     // Create message
     await createMessage({
       taskId: taskId as any,
-      fromAgentId: allAgents[0]?._id, // Default to first agent, ideally should be current user
+      fromAgentId: (allAgents[0]?._id || undefined) as any, // Default to first agent, ideally should be current user
       content: comment.trim(),
       messageType: "text",
     });
@@ -280,6 +488,22 @@ export default function TaskDetailPage() {
       const newCursorPos = newTextBeforeCursor.length;
       textareaRef.current?.setSelectionRange(newCursorPos, newCursorPos);
     }, 0);
+  };
+
+  const handleOpenDocument = (document: any) => {
+    setSelectedDocument(document);
+    setIsDocumentViewerOpen(true);
+  };
+
+  const handleCloseDocument = () => {
+    setIsDocumentViewerOpen(false);
+    setSelectedDocument(null);
+  };
+
+  const getAgentName = (agentId?: string): string => {
+    if (!agentId) return "Unknown";
+    const agent = allAgents.find((a: any) => a._id === agentId);
+    return agent?.name || "Unknown";
   };
 
   if (!task) {
@@ -514,6 +738,49 @@ export default function TaskDetailPage() {
                 </div>
               </div>
             </Card>
+
+            {/* Documents Section */}
+            <Card className="p-6 bg-[#F7F5F0] border-[#E8E4DB]">
+              <h2 className="font-serif text-lg font-semibold text-[#1A1A1A] mb-4">
+                Documents ({documents.length})
+              </h2>
+              {documents.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-[#E8E4DB] rounded-md">
+                  <FileText className="h-8 w-8 text-[#8A8A82] mx-auto mb-2" />
+                  <p className="text-sm text-[#6B6B65]">No documents yet</p>
+                  <p className="text-xs text-[#8A8A82] mt-1">
+                    Documents attached to this task will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {documents.map((document: any) => (
+                    <button
+                      key={document._id}
+                      onClick={() => handleOpenDocument(document)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center gap-3 p-3 bg-[#FDFCF8] rounded-md border border-[#E8E4DB] hover:border-[#8A8A82] hover:shadow-sm transition-all group">
+                        <div className="h-10 w-10 rounded-md bg-[#F0EDE6] flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-5 w-5 text-[#6B6B65]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#1A1A1A] truncate">
+                            {document.title}
+                          </p>
+                          <p className="text-xs text-[#8A8A82]">
+                            {(document.type || "text").toUpperCase()} • v
+                            {document.version || 1} •{" "}
+                            {formatTimeAgo(document._creationTime)}
+                          </p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-[#8A8A82] group-hover:text-[#6B6B65] transition-colors" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </Card>
           </div>
 
           {/* Right column - Task info */}
@@ -633,6 +900,14 @@ export default function TaskDetailPage() {
           </div>
         </div>
       </main>
+
+      {/* Document Viewer Dialog */}
+      <DocumentViewerDialog
+        document={selectedDocument}
+        isOpen={isDocumentViewerOpen}
+        onClose={handleCloseDocument}
+        getAgentName={getAgentName}
+      />
     </div>
   );
 }

@@ -30,5 +30,8 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "dependencies": {
+    "expo-updates": "~29.0.16"
+  }
 }

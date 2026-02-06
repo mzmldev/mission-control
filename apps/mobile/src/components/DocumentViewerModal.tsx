@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Clipboard,
   Dimensions,
   Linking,
   Modal,
@@ -40,6 +41,7 @@ export function DocumentViewerModal({
 }: DocumentViewerModalProps) {
   const insets = useSafeAreaInsets();
   const [expanded, setExpanded] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const document = useQuery(
     api.documents.get,
@@ -49,6 +51,7 @@ export function DocumentViewerModal({
   useEffect(() => {
     if (!visible) {
       setExpanded(false);
+      setCopied(false);
     }
   }, [visible, documentId]);
 
@@ -66,6 +69,22 @@ export function DocumentViewerModal({
       return JSON.stringify(value, null, 2);
     } catch (error) {
       return String(value);
+    }
+  };
+
+  const getRawContent = (doc: any): string => {
+    return normalizeContent(doc?.content).trim();
+  };
+
+  const handleCopyContent = async () => {
+    if (!resolvedDocument) return;
+    const content = getRawContent(resolvedDocument);
+    try {
+      await Clipboard.setString(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
     }
   };
 
@@ -139,9 +158,23 @@ export function DocumentViewerModal({
             >
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Document</Text>
-                <Pressable style={styles.iconButton} onPress={onClose}>
-                  <Ionicons name="close" size={18} color={colors.inkTertiary} />
-                </Pressable>
+                <View style={styles.headerActions}>
+                  {resolvedDocument && (
+                    <Pressable
+                      style={[styles.iconButton, styles.copyButton]}
+                      onPress={handleCopyContent}
+                    >
+                      <Ionicons
+                        name={copied ? "checkmark" : "copy-outline"}
+                        size={18}
+                        color={copied ? "#059669" : colors.inkTertiary}
+                      />
+                    </Pressable>
+                  )}
+                  <Pressable style={styles.iconButton} onPress={onClose}>
+                    <Ionicons name="close" size={18} color={colors.inkTertiary} />
+                  </Pressable>
+                </View>
               </View>
 
               {resolvedDocument ? (
@@ -165,6 +198,13 @@ export function DocumentViewerModal({
                       Author {getAuthorName(resolvedDocument.createdBy)}
                     </Text>
                   </View>
+
+                  {copied && (
+                    <View style={styles.copyFeedback}>
+                      <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                      <Text style={styles.copyFeedbackText}>Copied to clipboard</Text>
+                    </View>
+                  )}
 
                   <View style={styles.documentContentCard}>
                     <Markdown
@@ -300,6 +340,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: colors.inkPrimary,
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   iconButton: {
     width: 32,
     height: 32,
@@ -307,6 +352,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.bgSecondary,
+  },
+  copyButton: {
+    backgroundColor: colors.bgTertiary,
+  },
+  copyFeedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: "#ECFDF5",
+    borderRadius: radius.md,
+    alignSelf: "flex-start",
+  },
+  copyFeedbackText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: "#059669",
   },
   documentTitle: {
     fontFamily: fonts.serif,
